@@ -1,19 +1,30 @@
 package be.nabu.eai.module.http.server.renderer;
 
 import java.io.IOException;
+import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import be.nabu.libs.authentication.api.Token;
 import be.nabu.libs.events.api.EventDispatcher;
 import be.nabu.libs.events.api.ResponseHandler;
+import be.nabu.libs.http.HTTPException;
 import be.nabu.libs.http.api.HTTPRequest;
 import be.nabu.libs.http.api.HTTPResponse;
+import be.nabu.libs.http.api.client.HTTPClient;
 import be.nabu.libs.http.core.DefaultHTTPRequest;
+import be.nabu.libs.http.server.SimpleAuthenticationHeader;
 import be.nabu.utils.io.IOUtils;
+import be.nabu.utils.io.api.ByteBuffer;
+import be.nabu.utils.io.api.ReadableContainer;
 import be.nabu.utils.mime.api.ContentPart;
 import be.nabu.utils.mime.api.Header;
+import be.nabu.utils.mime.impl.FormatException;
 import be.nabu.utils.mime.impl.MimeHeader;
 import be.nabu.utils.mime.impl.MimeUtils;
 import be.nabu.utils.mime.impl.PlainMimeContentPart;
@@ -28,9 +39,14 @@ import com.gargoylesoftware.htmlunit.util.NameValuePair;
 public class WebConnectionImpl implements WebConnection {
 
 	private EventDispatcher dispatcher;
+	private Token token;
+	private Logger logger = LoggerFactory.getLogger(getClass());
+	private HTTPClient client;
 
-	public WebConnectionImpl(EventDispatcher dispatcher) {
+	public WebConnectionImpl(EventDispatcher dispatcher, Token token, HTTPClient client) {
 		this.dispatcher = dispatcher;
+		this.token = token;
+		this.client = client;
 	}
 	
 	@Override
@@ -51,17 +67,19 @@ public class WebConnectionImpl implements WebConnection {
 		}
 		
 		Map<String, String> additionalHeaders = arg0.getAdditionalHeaders();
-		System.out.println("HEADERS ARE: " + additionalHeaders);
 		for (String key : additionalHeaders.keySet()) {
 			request.getContent().setHeader(new MimeHeader(key, additionalHeaders.get(key)));
 		}
 		
 		if (MimeUtils.getHeader("Host", request.getContent().getHeaders()) == null) {
-			System.out.println("Setting host...");
 			request.getContent().setHeader(new MimeHeader("Host", arg0.getUrl().getAuthority()));
 		}
 		
 		request.getContent().setHeader(new MimeHeader("Nabu-Renderer", "false"));
+		
+		if (token != null) {
+			request.getContent().setHeader(new SimpleAuthenticationHeader(token));
+		}
 		
 		Date date = new Date();
 		HTTPResponse response = dispatcher.fire(request, this, new ResponseHandler<HTTPRequest, HTTPResponse>() {
@@ -71,8 +89,8 @@ public class WebConnectionImpl implements WebConnection {
 					return (HTTPResponse) arg1;
 				}
 				else if (arg1 instanceof Exception) {
-					System.out.println("EXCEPTION: " + arg1);
-					((Exception) arg1).printStackTrace();
+					logger.error("Could not process request", (Exception) arg1);
+					throw new HTTPException(500, (Exception) arg1);
 				}
 				return null;
 			}
@@ -83,16 +101,33 @@ public class WebConnectionImpl implements WebConnection {
 					return (HTTPRequest) arg1;
 				}
 				else if (arg1 instanceof Exception) {
-					System.out.println("EXCEPTION: " + arg1);
-					((Exception) arg1).printStackTrace();
+					logger.error("Could not preprocess request", (Exception) arg1);
+					throw new HTTPException(500, (Exception) arg1);
 				}
 				return null;
 			}
 		});
 		
+		// if there is no response whatsoever (not even a 404), it was not aimed at this server, could be a cdn import or something like that
+		if (response == null) {
+			try {
+				response = client.execute(request, null, request.getTarget().startsWith("https://"), true);
+			}
+			catch (Exception e) {
+				throw new RuntimeException(e);
+			}
+		}
+		
+		if (response == null) {
+			throw new RuntimeException("No response found");
+		}
+		
 		byte [] content = null;
 		if (response.getContent() instanceof ContentPart) {
-			content = IOUtils.toBytes(((ContentPart) response.getContent()).getReadable());
+			ReadableContainer<ByteBuffer> readable = ((ContentPart) response.getContent()).getReadable();
+			if (readable != null) {
+				content = IOUtils.toBytes(readable);
+			}
 		}
 		
 		List<NameValuePair> responseHeaders = new ArrayList<NameValuePair>();

@@ -7,6 +7,7 @@ import javax.xml.bind.annotation.XmlRootElement;
 import javax.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 
 import be.nabu.eai.api.EnvironmentSpecific;
+import be.nabu.eai.module.http.client.HTTPClientArtifact;
 import be.nabu.eai.repository.api.CacheProviderArtifact;
 import be.nabu.eai.repository.jaxb.ArtifactXMLAdapter;
 
@@ -15,7 +16,8 @@ public class RendererConfiguration {
 
 	private List<String> agents = new ArrayList<String>();
 	private CacheProviderArtifact cacheProvider;
-
+	private HTTPClientArtifact httpClient;
+	
 	@EnvironmentSpecific
 	@XmlJavaTypeAdapter(value = ArtifactXMLAdapter.class)
 	public CacheProviderArtifact getCacheProvider() {
@@ -32,4 +34,11 @@ public class RendererConfiguration {
 		this.agents = agents;
 	}
 	
+	@XmlJavaTypeAdapter(value = ArtifactXMLAdapter.class)
+	public HTTPClientArtifact getHttpClient() {
+		return httpClient;
+	}
+	public void setHttpClient(HTTPClientArtifact httpClient) {
+		this.httpClient = httpClient;
+	}
 }

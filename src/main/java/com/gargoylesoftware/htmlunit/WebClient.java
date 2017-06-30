@@ -19,6 +19,7 @@ import static com.gargoylesoftware.htmlunit.BrowserVersionFeatures.HTTP_REDIRECT
 import static com.gargoylesoftware.htmlunit.BrowserVersionFeatures.JS_XML_SUPPORT_VIA_ACTIVEXOBJECT;
 import static com.gargoylesoftware.htmlunit.BrowserVersionFeatures.URL_MINIMAL_QUERY_ENCODING;
 import static com.gargoylesoftware.htmlunit.BrowserVersionFeatures.WINDOW_EXECUTE_EVENTS;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import java.io.BufferedInputStream;
 import java.io.File;
@@ -33,7 +34,6 @@ import java.net.URL;
 import java.net.URLConnection;
 import java.net.URLDecoder;
 import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.ConcurrentModificationException;
@@ -43,6 +43,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.Stack;
@@ -74,6 +75,7 @@ import com.gargoylesoftware.htmlunit.html.HTMLParserListener;
 import com.gargoylesoftware.htmlunit.html.HtmlInlineFrame;
 import com.gargoylesoftware.htmlunit.html.HtmlPage;
 import com.gargoylesoftware.htmlunit.httpclient.HtmlUnitBrowserCompatCookieSpec;
+import com.gargoylesoftware.htmlunit.javascript.AbstractJavaScriptEngine;
 import com.gargoylesoftware.htmlunit.javascript.DefaultJavaScriptErrorListener;
 import com.gargoylesoftware.htmlunit.javascript.JavaScriptEngine;
 import com.gargoylesoftware.htmlunit.javascript.JavaScriptErrorListener;
@@ -132,6 +134,7 @@ import net.sourceforge.htmlunit.corejs.javascript.ScriptableObject;
  * @author Nicolas Belisle
  * @author Ronald Brill
  * @author Frank Danek
+ * @author Joerg Werner
  */
 public class WebClient implements Serializable, AutoCloseable {
 
@@ -144,7 +147,7 @@ public class WebClient implements Serializable, AutoCloseable {
     private transient WebConnection webConnection_;
     private CredentialsProvider credentialsProvider_ = new DefaultCredentialsProvider();
     private CookieManager cookieManager_ = new CookieManager();
-    private transient JavaScriptEngine scriptEngine_;
+    private transient AbstractJavaScriptEngine<?> scriptEngine_;
     private final Map<String, String> requestHeaders_ = Collections.synchronizedMap(new HashMap<String, String>(89));
     private IncorrectnessListener incorrectnessListener_ = new IncorrectnessListenerImpl();
     private WebConsole webConsole_;
@@ -196,6 +199,7 @@ public class WebClient implements Serializable, AutoCloseable {
     private JavaScriptErrorListener javaScriptErrorListener_ = new DefaultJavaScriptErrorListener();
 
     private WebClientOptions options_ = new WebClientOptions();
+    private WebClientInternals internals_ = new WebClientInternals(this);
     private final StorageHolder storageHolder_ = new StorageHolder();
 
     private static final WebResponseData responseDataNoHttpResponse_ = new WebResponseData(
@@ -206,13 +210,18 @@ public class WebClient implements Serializable, AutoCloseable {
      * {@link BrowserVersion#getDefault()}.
      */
     public WebClient() {
-        this(BrowserVersion.getDefault(), null);
+        this(BrowserVersion.getDefault());
     }
 
     /**
      * Creates a web client instance using the specified {@link BrowserVersion}.
      * @param browserVersion the browser version to simulate
      */
+    public WebClient(final BrowserVersion browserVersion) {
+        WebAssert.notNull("browserVersion", browserVersion);
+        init(browserVersion, new ProxyConfig());
+    }
+    
     public WebClient(final BrowserVersion browserVersion, WebConnection connection) {
         WebAssert.notNull("browserVersion", browserVersion);
         init(browserVersion, new ProxyConfig(), connection);
@@ -227,20 +236,23 @@ public class WebClient implements Serializable, AutoCloseable {
     public WebClient(final BrowserVersion browserVersion, final String proxyHost, final int proxyPort) {
         WebAssert.notNull("browserVersion", browserVersion);
         WebAssert.notNull("proxyHost", proxyHost);
-        init(browserVersion, new ProxyConfig(proxyHost, proxyPort), null);
+        init(browserVersion, new ProxyConfig(proxyHost, proxyPort));
     }
 
+    private void init(final BrowserVersion browserVersion, final ProxyConfig proxyConfig) {
+    	this.init(browserVersion, proxyConfig, null);
+    }
     /**
      * Generic initialization logic used by all constructors. This method does not perform any
      * parameter validation; such validation must be handled by the constructors themselves.
      * @param browserVersion the browser version to simulate
      * @param proxyConfig the proxy configuration to use
      */
-    private void init(final BrowserVersion browserVersion, final ProxyConfig proxyConfig, WebConnection webConnection) {
+    private void init(final BrowserVersion browserVersion, final ProxyConfig proxyConfig, WebConnection connection) {
         browserVersion_ = browserVersion;
         getOptions().setProxyConfig(proxyConfig);
 
-        webConnection_ = webConnection == null ? createWebConnection() : webConnection; // this has to be done after the browser version was set
+        webConnection_ = connection == null ? createWebConnection() : connection; // this has to be done after the browser version was set
         scriptEngine_ = new JavaScriptEngine(this);
         // The window must be constructed AFTER the script engine.
         addWebWindowListener(new CurrentWindowTracker(this));
@@ -334,7 +346,7 @@ public class WebClient implements Serializable, AutoCloseable {
      * @see WebRequest
      */
     @SuppressWarnings("unchecked")
-    public <P extends Page> P getPage(final WebWindow webWindow, final WebRequest webRequest,
+    <P extends Page> P getPage(final WebWindow webWindow, final WebRequest webRequest,
             final boolean addToHistory)
         throws IOException, FailingHttpStatusCodeException {
 
@@ -355,6 +367,7 @@ public class WebClient implements Serializable, AutoCloseable {
                 final Window window = (Window) webWindow.getScriptableObject();
                 if (window != null) { // js enabled
                     window.getLocation().setHash(current.getRef());
+                    window.clearComputedStyles();
                 }
                 return (P) page;
             }
@@ -545,7 +558,7 @@ public class WebClient implements Serializable, AutoCloseable {
      * <span style="color:red">INTERNAL API - SUBJECT TO CHANGE AT ANY TIME - USE AT YOUR OWN RISK.</span>
      *
      * <p>Logs the response's content if its status code indicates a request failure and
-     * {@link WebClientOptions#getPrintContentOnFailingStatusCode()} returns {@code true}.
+     * {@link WebClientOptions#isPrintContentOnFailingStatusCode()} returns {@code true}.
      *
      * @param webResponse the response whose content may be logged
      */
@@ -553,7 +566,7 @@ public class WebClient implements Serializable, AutoCloseable {
         final String contentType = webResponse.getContentType();
         final int statusCode = webResponse.getStatusCode();
         final boolean successful = statusCode >= HttpStatus.SC_OK && statusCode < HttpStatus.SC_MULTIPLE_CHOICES;
-        if (getOptions().getPrintContentOnFailingStatusCode() && !successful) {
+        if (getOptions().isPrintContentOnFailingStatusCode() && !successful) {
             LOG.info("statusCode=[" + statusCode + "] contentType=[" + contentType + "]");
             LOG.info(webResponse.getContentAsString());
         }
@@ -624,7 +637,7 @@ public class WebClient implements Serializable, AutoCloseable {
      * This method is intended for testing only - use at your own risk.
      * @return the current JavaScript engine (never {@code null})
      */
-    public JavaScriptEngine getJavaScriptEngine() {
+    public AbstractJavaScriptEngine<?> getJavaScriptEngine() {
         return scriptEngine_;
     }
 
@@ -633,7 +646,7 @@ public class WebClient implements Serializable, AutoCloseable {
      *
      * @param engine the new script engine to use
      */
-    public void setJavaScriptEngine(final JavaScriptEngine engine) {
+    public void setJavaScriptEngine(final AbstractJavaScriptEngine<?> engine) {
         if (engine == null) {
             throw new IllegalArgumentException("Can't set JavaScriptEngine to null");
         }
@@ -790,9 +803,10 @@ public class WebClient implements Serializable, AutoCloseable {
             //2. onFocus event is triggered for focusedElement of new current window
             final Page enclosedPage = currentWindow_.getEnclosedPage();
             if (enclosedPage != null && enclosedPage.isHtmlPage()) {
-                final Window jsWindow = (Window) currentWindow_.getScriptableObject();
-                if (jsWindow != null) {
-                    final HTMLElement activeElement = ((HTMLDocument) jsWindow.getDocument()).getActiveElement();
+                final Object jsWindow = currentWindow_.getScriptableObject();
+                if (jsWindow instanceof Window) {
+                    final HTMLElement activeElement =
+                            ((HTMLDocument) ((Window) jsWindow).getDocument()).getActiveElement();
                     if (activeElement != null) {
                         ((HtmlPage) enclosedPage).setFocusedElement(activeElement.getDomNodeOrDie(), true);
                     }
@@ -1066,7 +1080,10 @@ public class WebClient implements Serializable, AutoCloseable {
      */
     public void initialize(final Page newPage) {
         WebAssert.notNull("newPage", newPage);
-        ((Window) newPage.getEnclosingWindow().getScriptableObject()).initialize(newPage);
+        final WebWindow webWindow = newPage.getEnclosingWindow();
+        if (webWindow.getScriptableObject() instanceof Window) {
+            ((Window) webWindow.getScriptableObject()).initialize(newPage);
+        }
     }
 
     /**
@@ -1174,7 +1191,7 @@ public class WebClient implements Serializable, AutoCloseable {
         }
 
         String fileUrl = cleanUrl.toExternalForm();
-        fileUrl = URLDecoder.decode(fileUrl, "UTF-8");
+        fileUrl = URLDecoder.decode(fileUrl, UTF_8.name());
         final File file = new File(fileUrl.substring(5));
         if (!file.exists()) {
             // construct 404
@@ -1182,7 +1199,7 @@ public class WebClient implements Serializable, AutoCloseable {
             compiledHeaders.add(new NameValuePair("Content-Type", "text/html"));
             final WebResponseData responseData =
                 new WebResponseData(
-                    TextUtil.stringToByteArray("File: " + file.getAbsolutePath(), StandardCharsets.UTF_8),
+                    TextUtil.stringToByteArray("File: " + file.getAbsolutePath(), UTF_8),
                     404, "Not Found", compiledHeaders);
             return new WebResponse(responseData, webRequest, 0);
         }
@@ -1205,11 +1222,21 @@ public class WebClient implements Serializable, AutoCloseable {
      * @return "application/octet-stream" if nothing could be guessed
      */
     public String guessContentType(final File file) {
-        String contentType = URLConnection.guessContentTypeFromName(file.getName());
-        if (file.getName().endsWith(".xhtml")) {
-            // Java's mime type map doesn't know about XHTML files (at least in Sun JDK5).
-            contentType = "application/xhtml+xml";
+        final String fileName = file.getName();
+        if (fileName.endsWith(".xhtml")) {
+            // Java's mime type map returns application/xml in JDK8.
+            return "application/xhtml+xml";
         }
+
+        // Java's mime type map does not know these in JDK8.
+        if (fileName.endsWith(".js")) {
+            return "text/javascript";
+        }
+        if (fileName.toLowerCase(Locale.ROOT).endsWith(".css")) {
+            return "text/css";
+        }
+
+        String contentType = URLConnection.guessContentTypeFromName(fileName);
         if (contentType == null) {
             try (InputStream inputStream = new BufferedInputStream(new FileInputStream(file))) {
                 contentType = URLConnection.guessContentTypeFromStream(inputStream);
@@ -1219,12 +1246,7 @@ public class WebClient implements Serializable, AutoCloseable {
             }
         }
         if (contentType == null) {
-            if (file.getName().endsWith(".js")) {
-                contentType = "text/javascript";
-            }
-            else {
-                contentType = "application/octet-stream";
-            }
+            contentType = "application/octet-stream";
         }
         return contentType;
     }
@@ -1251,7 +1273,7 @@ public class WebClient implements Serializable, AutoCloseable {
         if (page == null) {
             page = getPage(webWindow, new WebRequest(WebClient.URL_ABOUT_BLANK));
         }
-        final ScriptResult r = page.executeJavaScriptIfPossible(url.toExternalForm(), "JavaScript URL", 1);
+        final ScriptResult r = page.executeJavaScript(url.toExternalForm(), "JavaScript URL", 1);
         if (r.getJavaScriptResult() == null || ScriptResult.isUndefined(r)) {
             // No new WebResponse to produce.
             return webWindow.getEnclosedPage().getWebResponse();
@@ -1270,22 +1292,19 @@ public class WebClient implements Serializable, AutoCloseable {
      * @return the WebResponse
      */
     public WebResponse loadWebResponse(final WebRequest webRequest) throws IOException {
-        final WebResponse response;
-        final String protocol = webRequest.getUrl().getProtocol();
-        if ("about".equals(protocol)) {
-            response = makeWebResponseForAboutUrl(webRequest.getUrl());
-        }
-        else if ("file".equals(protocol)) {
-            response = makeWebResponseForFileUrl(webRequest);
-        }
-        else if ("data".equals(protocol)) {
-            response = makeWebResponseForDataUrl(webRequest);
-        }
-        else {
-            response = loadWebResponseFromWebConnection(webRequest, ALLOWED_REDIRECTIONS_SAME_URL);
-        }
+        switch (webRequest.getUrl().getProtocol()) {
+            case "about":
+                return makeWebResponseForAboutUrl(webRequest.getUrl());
 
-        return response;
+            case "file":
+                return makeWebResponseForFileUrl(webRequest);
+
+            case "data":
+                return makeWebResponseForDataUrl(webRequest);
+
+            default:
+                return loadWebResponseFromWebConnection(webRequest, ALLOWED_REDIRECTIONS_SAME_URL);
+        }
     }
 
     /**
@@ -1784,11 +1803,12 @@ public class WebClient implements Serializable, AutoCloseable {
                 // now looks at the visibility of the frame window
                 final BaseFrameElement frameElement = fw.getFrameElement();
                 if (frameElement.isDisplayed()) {
-                    final HTMLElement htmlElement = (HTMLElement) frameElement.getScriptableObject();
+                    final Object element = frameElement.getScriptableObject();
+                    final HTMLElement htmlElement = (HTMLElement) element;
                     final ComputedCSSStyleDeclaration style =
                             htmlElement.getWindow().getComputedStyle(htmlElement, null);
                     use = style.getCalculatedWidth(false, false) != 0
-                        && style.getCalculatedHeight(false, false) != 0;
+                            && style.getCalculatedHeight(false, false) != 0;
                 }
             }
             if (use) {
@@ -1822,14 +1842,24 @@ public class WebClient implements Serializable, AutoCloseable {
         final List<TopLevelWindow> topWindows = new ArrayList<>(topLevelWindows_);
         for (final TopLevelWindow topWindow : topWindows) {
             if (topLevelWindows_.contains(topWindow)) {
-                topWindow.close();
+                try {
+                    topWindow.close();
+                }
+                catch (final Exception e) {
+                    LOG.error("Exception while closing a topLevelWindow", e);
+                }
             }
         }
 
         // do this after closing the windows, otherwise some unload event might
         // start a new window that will start the thread again
         if (scriptEngine_ != null) {
-            scriptEngine_.shutdown();
+            try {
+                scriptEngine_.shutdown();
+            }
+            catch (final Exception e) {
+                LOG.error("Exception while shutdown the scriptEngine", e);
+            }
         }
 
         try {
@@ -2197,6 +2227,16 @@ public class WebClient implements Serializable, AutoCloseable {
      */
     public WebClientOptions getOptions() {
         return options_;
+    }
+
+    /**
+     * <span style="color:red">INTERNAL API - SUBJECT TO CHANGE AT ANY TIME - USE AT YOUR OWN RISK.</span><br>
+     *
+     * Returns the internals object of this WebClient.
+     * @return the internals object
+     */
+    public WebClientInternals getInternals() {
+        return internals_;
     }
 
     /**

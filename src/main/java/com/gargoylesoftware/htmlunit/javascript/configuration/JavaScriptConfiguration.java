@@ -21,8 +21,10 @@ import com.gargoylesoftware.htmlunit.BrowserVersion;
 import com.gargoylesoftware.htmlunit.javascript.NamedNodeMap;
 import com.gargoylesoftware.htmlunit.javascript.SimpleScriptable;
 import com.gargoylesoftware.htmlunit.javascript.host.ActiveXObject;
+import com.gargoylesoftware.htmlunit.javascript.host.Animation;
 import com.gargoylesoftware.htmlunit.javascript.host.AppBannerPromptResult;
 import com.gargoylesoftware.htmlunit.javascript.host.ApplicationCache;
+import com.gargoylesoftware.htmlunit.javascript.host.AudioScheduledSourceNode;
 import com.gargoylesoftware.htmlunit.javascript.host.BarProp;
 import com.gargoylesoftware.htmlunit.javascript.host.BatteryManager;
 import com.gargoylesoftware.htmlunit.javascript.host.BroadcastChannel;
@@ -77,6 +79,7 @@ import com.gargoylesoftware.htmlunit.javascript.host.URL;
 import com.gargoylesoftware.htmlunit.javascript.host.URLSearchParams;
 import com.gargoylesoftware.htmlunit.javascript.host.WeakMap;
 import com.gargoylesoftware.htmlunit.javascript.host.WeakSet;
+import com.gargoylesoftware.htmlunit.javascript.host.WebSocket;
 import com.gargoylesoftware.htmlunit.javascript.host.Window;
 import com.gargoylesoftware.htmlunit.javascript.host.XPathExpression;
 import com.gargoylesoftware.htmlunit.javascript.host.webkitURL;
@@ -109,12 +112,17 @@ import com.gargoylesoftware.htmlunit.javascript.host.canvas.WebGLActiveInfo;
 import com.gargoylesoftware.htmlunit.javascript.host.canvas.WebGLBuffer;
 import com.gargoylesoftware.htmlunit.javascript.host.canvas.WebGLFramebuffer;
 import com.gargoylesoftware.htmlunit.javascript.host.canvas.WebGLProgram;
+import com.gargoylesoftware.htmlunit.javascript.host.canvas.WebGLQuery;
 import com.gargoylesoftware.htmlunit.javascript.host.canvas.WebGLRenderbuffer;
 import com.gargoylesoftware.htmlunit.javascript.host.canvas.WebGLRenderingContext;
+import com.gargoylesoftware.htmlunit.javascript.host.canvas.WebGLSampler;
 import com.gargoylesoftware.htmlunit.javascript.host.canvas.WebGLShader;
 import com.gargoylesoftware.htmlunit.javascript.host.canvas.WebGLShaderPrecisionFormat;
+import com.gargoylesoftware.htmlunit.javascript.host.canvas.WebGLSync;
 import com.gargoylesoftware.htmlunit.javascript.host.canvas.WebGLTexture;
+import com.gargoylesoftware.htmlunit.javascript.host.canvas.WebGLTransformFeedback;
 import com.gargoylesoftware.htmlunit.javascript.host.canvas.WebGLUniformLocation;
+import com.gargoylesoftware.htmlunit.javascript.host.canvas.WebGLVertexArrayObject;
 import com.gargoylesoftware.htmlunit.javascript.host.canvas.ext.ANGLE_instanced_arrays;
 import com.gargoylesoftware.htmlunit.javascript.host.canvas.ext.EXT_texture_filter_anisotropic;
 import com.gargoylesoftware.htmlunit.javascript.host.canvas.ext.OES_element_index_uint;
@@ -180,7 +188,6 @@ import com.gargoylesoftware.htmlunit.javascript.host.dom.DOMTokenList;
 import com.gargoylesoftware.htmlunit.javascript.host.dom.Document;
 import com.gargoylesoftware.htmlunit.javascript.host.dom.DocumentFragment;
 import com.gargoylesoftware.htmlunit.javascript.host.dom.DocumentType;
-import com.gargoylesoftware.htmlunit.javascript.host.dom.EventNode;
 import com.gargoylesoftware.htmlunit.javascript.host.dom.IdleDeadline;
 import com.gargoylesoftware.htmlunit.javascript.host.dom.MediaList;
 import com.gargoylesoftware.htmlunit.javascript.host.dom.MutationObserver;
@@ -253,7 +260,6 @@ import com.gargoylesoftware.htmlunit.javascript.host.event.RTCDataChannelEvent;
 import com.gargoylesoftware.htmlunit.javascript.host.event.RTCPeerConnectionIceEvent;
 import com.gargoylesoftware.htmlunit.javascript.host.event.SVGZoomEvent;
 import com.gargoylesoftware.htmlunit.javascript.host.event.SecurityPolicyViolationEvent;
-import com.gargoylesoftware.htmlunit.javascript.host.event.ServiceWorkerMessageEvent;
 import com.gargoylesoftware.htmlunit.javascript.host.event.SpeechSynthesisEvent;
 import com.gargoylesoftware.htmlunit.javascript.host.event.StorageEvent;
 import com.gargoylesoftware.htmlunit.javascript.host.event.TextEvent;
@@ -278,6 +284,11 @@ import com.gargoylesoftware.htmlunit.javascript.host.file.DataTransferItemList;
 import com.gargoylesoftware.htmlunit.javascript.host.file.File;
 import com.gargoylesoftware.htmlunit.javascript.host.file.FileList;
 import com.gargoylesoftware.htmlunit.javascript.host.file.FileReader;
+import com.gargoylesoftware.htmlunit.javascript.host.file.FileSystem;
+import com.gargoylesoftware.htmlunit.javascript.host.file.FileSystemDirectoryEntry;
+import com.gargoylesoftware.htmlunit.javascript.host.file.FileSystemDirectoryReader;
+import com.gargoylesoftware.htmlunit.javascript.host.file.FileSystemEntry;
+import com.gargoylesoftware.htmlunit.javascript.host.file.FileSystemFileEntry;
 import com.gargoylesoftware.htmlunit.javascript.host.geo.Coordinates;
 import com.gargoylesoftware.htmlunit.javascript.host.geo.Geolocation;
 import com.gargoylesoftware.htmlunit.javascript.host.geo.Position;
@@ -294,14 +305,6 @@ import com.gargoylesoftware.htmlunit.javascript.host.idb.IDBObjectStore;
 import com.gargoylesoftware.htmlunit.javascript.host.idb.IDBOpenDBRequest;
 import com.gargoylesoftware.htmlunit.javascript.host.idb.IDBRequest;
 import com.gargoylesoftware.htmlunit.javascript.host.idb.IDBTransaction;
-import com.gargoylesoftware.htmlunit.javascript.host.idb.webkitIDBCursor;
-import com.gargoylesoftware.htmlunit.javascript.host.idb.webkitIDBDatabase;
-import com.gargoylesoftware.htmlunit.javascript.host.idb.webkitIDBFactory;
-import com.gargoylesoftware.htmlunit.javascript.host.idb.webkitIDBIndex;
-import com.gargoylesoftware.htmlunit.javascript.host.idb.webkitIDBKeyRange;
-import com.gargoylesoftware.htmlunit.javascript.host.idb.webkitIDBObjectStore;
-import com.gargoylesoftware.htmlunit.javascript.host.idb.webkitIDBRequest;
-import com.gargoylesoftware.htmlunit.javascript.host.idb.webkitIDBTransaction;
 import com.gargoylesoftware.htmlunit.javascript.host.media.AnalyserNode;
 import com.gargoylesoftware.htmlunit.javascript.host.media.AudioBuffer;
 import com.gargoylesoftware.htmlunit.javascript.host.media.AudioBufferSourceNode;
@@ -354,9 +357,7 @@ import com.gargoylesoftware.htmlunit.javascript.host.media.TimeRanges;
 import com.gargoylesoftware.htmlunit.javascript.host.media.VTTCue;
 import com.gargoylesoftware.htmlunit.javascript.host.media.VideoPlaybackQuality;
 import com.gargoylesoftware.htmlunit.javascript.host.media.WaveShaperNode;
-import com.gargoylesoftware.htmlunit.javascript.host.media.webkitAudioContext;
 import com.gargoylesoftware.htmlunit.javascript.host.media.webkitMediaStream;
-import com.gargoylesoftware.htmlunit.javascript.host.media.webkitOfflineAudioContext;
 import com.gargoylesoftware.htmlunit.javascript.host.media.midi.MIDIAccess;
 import com.gargoylesoftware.htmlunit.javascript.host.media.midi.MIDIInput;
 import com.gargoylesoftware.htmlunit.javascript.host.media.midi.MIDIInputMap;
@@ -391,7 +392,9 @@ import com.gargoylesoftware.htmlunit.javascript.host.security.FederatedCredentia
 import com.gargoylesoftware.htmlunit.javascript.host.security.PasswordCredential;
 import com.gargoylesoftware.htmlunit.javascript.host.security.SiteBoundCredential;
 import com.gargoylesoftware.htmlunit.javascript.host.speech.SpeechSynthesis;
+import com.gargoylesoftware.htmlunit.javascript.host.speech.SpeechSynthesisErrorEvent;
 import com.gargoylesoftware.htmlunit.javascript.host.speech.SpeechSynthesisUtterance;
+import com.gargoylesoftware.htmlunit.javascript.host.speech.SpeechSynthesisVoice;
 import com.gargoylesoftware.htmlunit.javascript.host.speech.webkitSpeechGrammar;
 import com.gargoylesoftware.htmlunit.javascript.host.speech.webkitSpeechGrammarList;
 import com.gargoylesoftware.htmlunit.javascript.host.speech.webkitSpeechRecognition;
@@ -422,11 +425,13 @@ public final class JavaScriptConfiguration extends AbstractJavaScriptConfigurati
 
     @SuppressWarnings("unchecked")
     static final Class<? extends SimpleScriptable>[] CLASSES_ = new Class[] {
-        AbstractList.class, ActiveXObject.class, AnalyserNode.class, ANGLE_instanced_arrays.class, AnimationEvent.class,
+        AbstractList.class, ActiveXObject.class, AnalyserNode.class, ANGLE_instanced_arrays.class,
+        Animation.class, AnimationEvent.class,
         AppBannerPromptResult.class, ApplicationCache.class, ApplicationCacheErrorEvent.class, ArrayBuffer.class,
-        ArrayBufferView.class, ArrayBufferViewBase.class, Attr.class, AudioBuffer.class,
+        ArrayBufferView.class, ArrayBufferViewBase.class, Attr.class, Audio.class, AudioBuffer.class,
         AudioBufferSourceNode.class, AudioContext.class, AudioDestinationNode.class, AudioListener.class,
-        AudioNode.class, AudioParam.class, AudioProcessingEvent.class, BarProp.class, BaseAudioContext.class,
+        AudioNode.class, AudioParam.class, AudioProcessingEvent.class, AudioScheduledSourceNode.class,
+        BarProp.class, BaseAudioContext.class,
         BatteryManager.class, BeforeInstallPromptEvent.class, BeforeUnloadEvent.class, BiquadFilterNode.class,
         Blob.class, BlobEvent.class, BroadcastChannel.class, Cache.class, CacheStorage.class,
         CanvasCaptureMediaStream.class, CanvasCaptureMediaStreamTrack.class,
@@ -450,10 +455,12 @@ public final class JavaScriptConfiguration extends AbstractJavaScriptConfigurati
         DOMPointReadOnly.class, DOMRectReadOnly.class, DOMRequest.class,
         DOMSettableTokenList.class, DOMStringList.class, DOMStringMap.class, DOMTokenList.class,
         DragEvent.class, DynamicsCompressorNode.class,
-        Element.class, Enumerator.class, ErrorEvent.class, Event.class, EventNode.class, EventSource.class,
+        Element.class, Enumerator.class, ErrorEvent.class, Event.class, EventSource.class,
         EventTarget.class, EXT_texture_filter_anisotropic.class, External.class, FederatedCredential.class,
-        File.class, FileList.class,
-        FileReader.class, Float32Array.class, Float64Array.class, FocusEvent.class, FontFace.class,
+        File.class, FileList.class, FileReader.class,
+        FileSystem.class, FileSystemDirectoryEntry.class, FileSystemDirectoryReader.class,
+        FileSystemEntry.class, FileSystemFileEntry.class,
+        Float32Array.class, Float64Array.class, FocusEvent.class, FontFace.class,
         FontFaceSet.class, FormData.class, FormField.class, GainNode.class, Gamepad.class,
         GamepadButton.class, GamepadEvent.class, Geolocation.class, HashChangeEvent.class, Headers.class, History.class,
         HTMLAllCollection.class,
@@ -469,7 +476,7 @@ public final class JavaScriptConfiguration extends AbstractJavaScriptConfigurati
         HTMLFrameSetElement.class,
         HTMLHeadElement.class, HTMLHeadingElement.class, HTMLHRElement.class, HTMLHtmlElement.class,
         HTMLIFrameElement.class, HTMLImageElement.class, HTMLInlineQuotationElement.class, HTMLInputElement.class,
-        HTMLIsIndexElement.class, HTMLKeygenElement.class, HTMLLabelElement.class,
+        HTMLIsIndexElement.class, HTMLLabelElement.class,
         HTMLLegendElement.class, HTMLLIElement.class, HTMLLinkElement.class, HTMLListElement.class,
         HTMLMapElement.class, HTMLMarqueeElement.class,
         HTMLMediaElement.class, HTMLMenuElement.class, HTMLMenuItemElement.class, HTMLMetaElement.class,
@@ -531,10 +538,11 @@ public final class JavaScriptConfiguration extends AbstractJavaScriptConfigurati
         RTCSessionDescription.class, RTCStatsReport.class, Screen.class, ScreenOrientation.class,
         ScriptProcessorNode.class,
         SecurityPolicyViolationEvent.class, Selection.class, ServiceWorker.class, ServiceWorkerContainer.class,
-        ServiceWorkerMessageEvent.class, ServiceWorkerRegistration.class, Set.class, ShadowRoot.class,
+        ServiceWorkerRegistration.class, Set.class, ShadowRoot.class,
         SharedWorker.class, SimpleArray.class, SiteBoundCredential.class, SourceBuffer.class, SourceBufferList.class,
-        SpeechSynthesis.class, SpeechSynthesisEvent.class,
-        SpeechSynthesisUtterance.class, StereoPannerNode.class, Storage.class, StorageEvent.class, StorageManager.class,
+        SpeechSynthesis.class, SpeechSynthesisErrorEvent.class, SpeechSynthesisEvent.class,
+        SpeechSynthesisUtterance.class, SpeechSynthesisVoice.class,
+        StereoPannerNode.class, Storage.class, StorageEvent.class, StorageManager.class,
         StyleMedia.class, StyleSheet.class, StyleSheetList.class, SubtleCrypto.class,
         SVGAElement.class, SVGAltGlyphElement.class, SVGAngle.class, SVGAnimatedAngle.class,
         SVGAnimatedBoolean.class, SVGAnimatedEnumeration.class, SVGAnimatedInteger.class,
@@ -543,7 +551,7 @@ public final class JavaScriptConfiguration extends AbstractJavaScriptConfigurati
         SVGAnimatedTransformList.class, SVGAnimateElement.class,
         SVGAnimateMotionElement.class, SVGAnimateTransformElement.class, SVGAnimationElement.class,
         SVGCircleElement.class,
-        SVGClipPathElement.class, SVGComponentTransferFunctionElement.class, SVGCursorElement.class,
+        SVGClipPathElement.class, SVGComponentTransferFunctionElement.class,
         SVGDefsElement.class, SVGDescElement.class, SVGDiscardElement.class, SVGDocument.class, SVGElement.class,
         SVGEllipseElement.class, SVGFEBlendElement.class, SVGFEColorMatrixElement.class,
         SVGFEComponentTransferElement.class, SVGFECompositeElement.class, SVGFEConvolveMatrixElement.class,
@@ -581,20 +589,23 @@ public final class JavaScriptConfiguration extends AbstractJavaScriptConfigurati
         URLSearchParams.class, UserProximityEvent.class, ValidityState.class, VideoPlaybackQuality.class,
         VTTCue.class, WaveShaperNode.class, WeakMap.class, WeakSet.class, WebGL2RenderingContext.class,
         WEBGL_compressed_texture_s3tc.class, WEBGL_debug_renderer_info.class, WebGLActiveInfo.class, WebGLBuffer.class,
-        WebGLContextEvent.class, WebGLFramebuffer.class, WebGLProgram.class, WebGLRenderbuffer.class,
-        WebGLRenderingContext.class, WebGLShader.class, WebGLShaderPrecisionFormat.class, WebGLTexture.class,
-        WebGLUniformLocation.class, WebKitAnimationEvent.class, webkitAudioContext.class,
-        WebKitCSSMatrix.class, webkitIDBCursor.class, webkitIDBDatabase.class, webkitIDBFactory.class,
-        webkitIDBIndex.class, webkitIDBKeyRange.class, webkitIDBObjectStore.class, webkitIDBRequest.class,
-        webkitIDBTransaction.class, webkitMediaStream.class, WebKitMutationObserver.class,
-        webkitOfflineAudioContext.class, webkitRTCPeerConnection.class, webkitSpeechGrammar.class,
+        WebGLContextEvent.class, WebGLFramebuffer.class, WebGLProgram.class,
+        WebGLQuery.class,
+        WebGLRenderbuffer.class,
+        WebGLRenderingContext.class,
+        WebGLSampler.class, WebGLShader.class, WebGLShaderPrecisionFormat.class, WebGLSync.class,
+        WebGLTexture.class, WebGLTransformFeedback.class,
+        WebGLUniformLocation.class, WebGLVertexArrayObject.class,
+        WebKitAnimationEvent.class,
+        WebKitCSSMatrix.class, webkitMediaStream.class, WebKitMutationObserver.class,
+        webkitRTCPeerConnection.class, webkitSpeechGrammar.class,
         webkitSpeechGrammarList.class, webkitSpeechRecognition.class, webkitSpeechRecognitionError.class,
         webkitSpeechRecognitionEvent.class, WebKitTransitionEvent.class, webkitURL.class,
         WheelEvent.class, Window.class, Worker.class, XMLDocument.class,
         XMLHttpRequest.class, XMLHttpRequestEventTarget.class, XMLHttpRequestUpload.class, XMLSerializer.class,
         XPathEvaluator.class, XPathExpression.class,
         XPathNSResolver.class, XPathResult.class, XSLTProcessor.class};
-
+// WebSocket.class, 
     /** Cache of browser versions and their corresponding JavaScript configurations. */
     private static final Map<BrowserVersion, JavaScriptConfiguration> CONFIGURATION_MAP_ =
         new WeakHashMap<>();

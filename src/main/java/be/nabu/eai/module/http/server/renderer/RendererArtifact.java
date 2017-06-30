@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import nabu.protocols.http.client.Services;
 import be.nabu.eai.module.web.application.WebApplication;
 import be.nabu.eai.module.web.application.WebFragment;
 import be.nabu.eai.repository.EAIResourceRepository;
@@ -15,6 +16,7 @@ import be.nabu.libs.authentication.api.Permission;
 import be.nabu.libs.events.api.EventSubscription;
 import be.nabu.libs.http.api.HTTPRequest;
 import be.nabu.libs.http.api.HTTPResponse;
+import be.nabu.libs.http.api.client.HTTPClient;
 import be.nabu.libs.resources.api.ResourceContainer;
 
 public class RendererArtifact extends JAXBArtifact<RendererConfiguration> implements WebFragment {
@@ -27,7 +29,14 @@ public class RendererArtifact extends JAXBArtifact<RendererConfiguration> implem
 
 	@Override
 	public void start(WebApplication artifact, String path) throws IOException {
-		Renderer renderer = new Renderer(artifact);
+		HTTPClient client;
+		try {
+			client = Services.newClient(getConfig().getHttpClient());
+		}
+		catch (Exception e) {
+			throw new RuntimeException(e);
+		}
+		Renderer renderer = new Renderer(artifact, client);
 		if (EAIResourceRepository.isDevelopment()) {
 			renderer.setPathRegex(".*\\?.*\\$prerender");
 		}
