@@ -142,7 +142,12 @@ import net.sourceforge.htmlunit.corejs.javascript.ScriptableObject;
  */
 public class WebClient implements Serializable, AutoCloseable {
 
-    /** Logging support. */
+    /**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
+
+	/** Logging support. */
     private static final Log LOG = LogFactory.getLog(WebClient.class);
 
     /** Like the Firefox default value for {@code network.http.redirection-limit}. */
@@ -1750,7 +1755,11 @@ public class WebClient implements Serializable, AutoCloseable {
      * Keeps track of the current window. Inspired by WebTest's logic to track the current response.
      */
     private static final class CurrentWindowTracker implements WebWindowListener, Serializable {
-        private final WebClient webClient_;
+        /**
+		 * 
+		 */
+		private static final long serialVersionUID = 1L;
+		private final WebClient webClient_;
 
         private CurrentWindowTracker(final WebClient webClient) {
             webClient_ = webClient;

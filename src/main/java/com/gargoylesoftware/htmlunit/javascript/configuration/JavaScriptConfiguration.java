@@ -81,7 +81,6 @@ import com.gargoylesoftware.htmlunit.javascript.host.URL;
 import com.gargoylesoftware.htmlunit.javascript.host.URLSearchParams;
 import com.gargoylesoftware.htmlunit.javascript.host.WeakMap;
 import com.gargoylesoftware.htmlunit.javascript.host.WeakSet;
-import com.gargoylesoftware.htmlunit.javascript.host.WebSocket;
 import com.gargoylesoftware.htmlunit.javascript.host.Window;
 import com.gargoylesoftware.htmlunit.javascript.host.XPathExpression;
 import com.gargoylesoftware.htmlunit.javascript.host.webkitURL;
