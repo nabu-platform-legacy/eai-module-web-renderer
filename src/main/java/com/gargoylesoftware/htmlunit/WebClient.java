@@ -1,3 +1,7 @@
+// update the web client to allow passing in the webconnection directly
+// otherwise it will _always_ try to create an apache client it seems
+
+
 /*
  * Copyright (c) 2002-2017 Gargoyle Software Inc.
  *

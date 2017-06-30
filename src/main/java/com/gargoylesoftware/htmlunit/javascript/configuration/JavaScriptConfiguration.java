@@ -1,3 +1,5 @@
+// removed websocket support as it drags in the entire jetty stuff
+
 /*
  * Copyright (c) 2002-2017 Gargoyle Software Inc.
  *
