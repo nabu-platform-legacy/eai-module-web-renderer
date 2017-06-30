@@ -1,7 +1,6 @@
 package be.nabu.eai.module.http.server.renderer;
 
 import java.io.IOException;
-import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -24,7 +23,6 @@ import be.nabu.utils.io.api.ByteBuffer;
 import be.nabu.utils.io.api.ReadableContainer;
 import be.nabu.utils.mime.api.ContentPart;
 import be.nabu.utils.mime.api.Header;
-import be.nabu.utils.mime.impl.FormatException;
 import be.nabu.utils.mime.impl.MimeHeader;
 import be.nabu.utils.mime.impl.MimeUtils;
 import be.nabu.utils.mime.impl.PlainMimeContentPart;
@@ -132,6 +130,9 @@ public class WebConnectionImpl implements WebConnection {
 		
 		List<NameValuePair> responseHeaders = new ArrayList<NameValuePair>();
 		for (Header header : response.getContent().getHeaders()) {
+			if (header.getName().equalsIgnoreCase("Content-Encoding") || header.getName().equalsIgnoreCase("Transfer-Encoding")) {
+				continue;
+			}
 			responseHeaders.add(new NameValuePair(header.getName(), MimeUtils.getFullHeaderValue(header)));
 		}
 		WebResponseData data = new WebResponseData(content, response.getCode(), response.getMessage(), responseHeaders);

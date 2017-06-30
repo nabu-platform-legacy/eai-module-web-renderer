@@ -4,6 +4,9 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import be.nabu.eai.module.web.application.WebApplication;
 import be.nabu.libs.authentication.api.Token;
 import be.nabu.libs.events.api.EventHandler;
@@ -33,6 +36,7 @@ public class Renderer implements EventHandler<HTTPRequest, HTTPResponse> {
 	private String pathRegex;
 	private WebApplication application;
 	private HTTPClient client;
+	private static Logger logger = LoggerFactory.getLogger(Renderer.class);
 	
 	public Renderer(WebApplication application, HTTPClient client) {
 		this.application = application;
@@ -108,11 +112,11 @@ public class Renderer implements EventHandler<HTTPRequest, HTTPResponse> {
 			}
 		}
 		catch (HTTPException e) {
-			e.printStackTrace();
+			logger.error("HTTP Exception during rendering", e);
 			throw e;
 		}
 		catch (Throwable e) {
-			e.printStackTrace();
+			logger.error("Unknown Exception during rendering", e);
 			throw new HTTPException(500, e);
 		}
 	}
