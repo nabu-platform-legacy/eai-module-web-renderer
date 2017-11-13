@@ -7,6 +7,7 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import be.nabu.eai.module.http.server.RepositoryExceptionFormatter;
 import be.nabu.eai.module.web.application.WebApplication;
 import be.nabu.libs.authentication.api.Token;
 import be.nabu.libs.events.api.EventHandler;
@@ -69,7 +70,7 @@ public class Renderer implements EventHandler<HTTPRequest, HTTPResponse> {
 
 	public static HTTPResponse execute(WebApplication application, HTTPRequest request, Token token, HTTPClient client) {
 		try {
-			WebConnectionImpl webConnection = new WebConnectionImpl(application.getDispatcher(), token, client);
+			WebConnectionImpl webConnection = new WebConnectionImpl(application.getDispatcher(), token, client, new RepositoryExceptionFormatter(application.getConfig().getVirtualHost().getConfig().getServer()));
 			BrowserVersion browserVersion = BrowserVersion.BEST_SUPPORTED;
 			if (!browserVersion.getUserAgent().contains("Nabu-Renderer")) {
 				browserVersion.setUserAgent(browserVersion.getUserAgent() + " Nabu-Renderer/1.0");

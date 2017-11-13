@@ -18,6 +18,7 @@ import be.nabu.libs.http.api.HTTPResponse;
 import be.nabu.libs.http.api.client.HTTPClient;
 import be.nabu.libs.http.core.DefaultHTTPRequest;
 import be.nabu.libs.http.server.SimpleAuthenticationHeader;
+import be.nabu.libs.nio.api.ExceptionFormatter;
 import be.nabu.utils.io.IOUtils;
 import be.nabu.utils.io.api.ByteBuffer;
 import be.nabu.utils.io.api.ReadableContainer;
@@ -40,11 +41,13 @@ public class WebConnectionImpl implements WebConnection {
 	private Token token;
 	private Logger logger = LoggerFactory.getLogger(getClass());
 	private HTTPClient client;
+	private ExceptionFormatter<HTTPRequest, HTTPResponse> formatter;
 
-	public WebConnectionImpl(EventDispatcher dispatcher, Token token, HTTPClient client) {
+	public WebConnectionImpl(EventDispatcher dispatcher, Token token, HTTPClient client, ExceptionFormatter<HTTPRequest, HTTPResponse> formatter) {
 		this.dispatcher = dispatcher;
 		this.token = token;
 		this.client = client;
+		this.formatter = formatter;
 	}
 	
 	@Override
@@ -87,8 +90,7 @@ public class WebConnectionImpl implements WebConnection {
 					return (HTTPResponse) arg1;
 				}
 				else if (arg1 instanceof Exception) {
-					logger.error("Could not process request", (Exception) arg1);
-					throw new HTTPException(500, (Exception) arg1);
+					return formatter.format(arg0, (Exception) arg1);
 				}
 				return null;
 			}
