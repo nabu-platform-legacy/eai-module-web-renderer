@@ -18,6 +18,7 @@ import be.nabu.libs.services.api.ExecutionContext;
 import be.nabu.utils.mime.api.ModifiablePart;
 import be.nabu.utils.mime.api.Part;
 import be.nabu.utils.mime.impl.MimeHeader;
+import be.nabu.utils.mime.impl.MimeUtils;
 import be.nabu.utils.mime.impl.PlainMimeEmptyPart;
 
 @WebService
@@ -35,6 +36,16 @@ public class Services {
 		if (host == null) {
 			host = application.getConfig().getVirtualHost().getConfig().getHost();
 		}
+		
+		if (part == null) {
+			part = new PlainMimeEmptyPart(null, 
+					new MimeHeader("Host", host),
+					new MimeHeader("Content-Length", "0"));
+		}
+		if (part instanceof ModifiablePart && MimeUtils.getHeader("Host", part.getHeaders()) == null) {
+			((ModifiablePart) part).setHeader(new MimeHeader("Host", host));
+		}
+		
 		HTTPClientArtifact clientArtifact = httpClientId == null ? null : executionContext.getServiceContext().getResolver(HTTPClientArtifact.class).resolve(httpClientId);
 		HTTPClient client;
 		try {
@@ -44,9 +55,7 @@ public class Services {
 			throw new RuntimeException(e);
 		}
 		return Renderer.execute(application, 
-			new DefaultHTTPRequest(method == null ? "GET" : method.toUpperCase(), url.toString(), part != null ? (ModifiablePart) part : new PlainMimeEmptyPart(null, 
-				new MimeHeader("Host", host),
-				new MimeHeader("Content-Length", "0"))), 
+			new DefaultHTTPRequest(method == null ? "GET" : method.toUpperCase(), url.toString(), (ModifiablePart) part), 
 			token,
 			client);
 	}

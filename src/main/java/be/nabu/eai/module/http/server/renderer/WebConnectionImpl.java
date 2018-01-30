@@ -57,6 +57,8 @@ public class WebConnectionImpl implements WebConnection {
 
 	@Override
 	public WebResponse getResponse(WebRequest arg0) throws IOException {
+		logger.info("Requesting: " + arg0.getHttpMethod() + " " + arg0.getUrl());
+		
 		String body = arg0.getRequestBody();
 		HTTPRequest request = new DefaultHTTPRequest(
 				arg0.getHttpMethod().name(),
@@ -79,6 +81,7 @@ public class WebConnectionImpl implements WebConnection {
 		request.getContent().setHeader(new MimeHeader("Nabu-Renderer", "false"));
 		
 		if (token != null) {
+			logger.debug("Adding credentials for {}", token);
 			request.getContent().setHeader(new SimpleAuthenticationHeader(token));
 		}
 		
@@ -138,6 +141,8 @@ public class WebConnectionImpl implements WebConnection {
 			responseHeaders.add(new NameValuePair(header.getName(), MimeUtils.getFullHeaderValue(header)));
 		}
 		WebResponseData data = new WebResponseData(content, response.getCode(), response.getMessage(), responseHeaders);
+		
+		logger.debug("Response for " + arg0.getHttpMethod() + " " + arg0.getUrl() + ": " + response.getCode() + " " + response.getMessage());
 		
 		return new WebResponse(data, arg0, new Date().getTime() - date.getTime());
 	}

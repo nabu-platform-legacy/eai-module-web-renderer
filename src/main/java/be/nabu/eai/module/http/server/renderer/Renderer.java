@@ -76,30 +76,42 @@ public class Renderer implements EventHandler<HTTPRequest, HTTPResponse> {
 				browserVersion.setUserAgent(browserVersion.getUserAgent() + " Nabu-Renderer/1.0");
 			}
 			final WebClient webClient = new WebClient(browserVersion, webConnection);
+			
+			// "should" optimize the javascript code but doesn't...not really
+//			JavaScriptEngine sriptEngine = (JavaScriptEngine) webClient.getJavaScriptEngine();
+//			HtmlUnitContextFactory factory = sriptEngine.getContextFactory();
+//			Context context = factory.enterContext();
+//			context.setOptimizationLevel(9);
+			
 			webClient.setAjaxController(new NicelyResynchronizingAjaxController());
 			webClient.setCssErrorHandler(new SilentCssErrorHandler());
 			webClient.getOptions().setCssEnabled(true);
 			webClient.getOptions().setJavaScriptEnabled(true);
 			webClient.getOptions().setPopupBlockerEnabled(true);
 			webClient.getOptions().setTimeout(30000);
-			webClient.getOptions().setThrowExceptionOnFailingStatusCode(true);
+			webClient.getOptions().setThrowExceptionOnFailingStatusCode(false);
 			webClient.getOptions().setThrowExceptionOnScriptError(true);
 			webClient.getOptions().setPrintContentOnFailingStatusCode(true);
 			try {
 				// we can expand later to support body posts etc if necessary
 				URI uri = HTTPUtils.getURI(request, false);
+				logger.info("Loading page: " + uri);
 				HtmlPage page = webClient.getPage(uri.toURL());
-				page.initialize();
+//				logger.debug("Initializing page: " + uri);
+//				page.initialize();
 				// waiting for background javascript tasks to finish...
+				logger.debug("Waiting for background tasks...");
 				webClient.waitForBackgroundJavaScript(10000);
+				logger.debug("Getting page as xml");
 				String content = page.asXml();
 				// it will generate CDATA tags inside all script tags
 				// this is fine for javascript but does not work with templates
 				content = content.replaceAll("//[\\s]*<!\\[CDATA\\[", "");
 				content = content.replaceAll("//[\\s]*\\]\\]>", "");
 				byte [] bytes = content.getBytes("UTF-8");
+				logger.debug("Received: " + bytes.length + " bytes as content");
 				if (bytes.length == 0) {
-					return new DefaultHTTPResponse(200, HTTPCodes.getMessage(200), new PlainMimeEmptyPart(null, 
+					return new DefaultHTTPResponse(request, 200, HTTPCodes.getMessage(200), new PlainMimeEmptyPart(null, 
 						new MimeHeader("Content-Length", "0")));
 				}
 				else {
