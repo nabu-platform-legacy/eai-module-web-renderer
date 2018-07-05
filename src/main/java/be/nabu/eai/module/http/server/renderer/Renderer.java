@@ -20,6 +20,7 @@ import be.nabu.libs.http.core.DefaultHTTPResponse;
 import be.nabu.libs.http.core.HTTPUtils;
 import be.nabu.utils.io.IOUtils;
 import be.nabu.utils.mime.api.Header;
+import be.nabu.utils.mime.api.ModifiablePart;
 import be.nabu.utils.mime.impl.MimeHeader;
 import be.nabu.utils.mime.impl.MimeUtils;
 import be.nabu.utils.mime.impl.PlainMimeContentPart;
@@ -29,6 +30,7 @@ import com.gargoylesoftware.htmlunit.BrowserVersion;
 import com.gargoylesoftware.htmlunit.NicelyResynchronizingAjaxController;
 import com.gargoylesoftware.htmlunit.SilentCssErrorHandler;
 import com.gargoylesoftware.htmlunit.WebClient;
+import com.gargoylesoftware.htmlunit.WebRequest;
 import com.gargoylesoftware.htmlunit.html.HtmlPage;
 
 public class Renderer implements EventHandler<HTTPRequest, HTTPResponse> {
@@ -92,11 +94,18 @@ public class Renderer implements EventHandler<HTTPRequest, HTTPResponse> {
 			webClient.getOptions().setThrowExceptionOnFailingStatusCode(false);
 			webClient.getOptions().setThrowExceptionOnScriptError(true);
 			webClient.getOptions().setPrintContentOnFailingStatusCode(true);
+			
 			try {
 				// we can expand later to support body posts etc if necessary
 				URI uri = HTTPUtils.getURI(request, false);
+				WebRequest rendererRequest = new WebRequest(uri.toURL());
+				if (request.getContent() != null) {
+					for (Header header : request.getContent().getHeaders()) {
+						rendererRequest.setAdditionalHeader(header.getName(), MimeUtils.getFullHeaderValue(header));
+					}
+				}
 				logger.info("Loading page: " + uri);
-				HtmlPage page = webClient.getPage(uri.toURL());
+				HtmlPage page = webClient.getPage(rendererRequest);
 //				logger.debug("Initializing page: " + uri);
 //				page.initialize();
 				// waiting for background javascript tasks to finish...
