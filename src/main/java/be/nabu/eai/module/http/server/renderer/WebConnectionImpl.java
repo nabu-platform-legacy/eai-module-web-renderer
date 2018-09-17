@@ -1,5 +1,6 @@
 package be.nabu.eai.module.http.server.renderer;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
@@ -42,6 +43,8 @@ public class WebConnectionImpl implements WebConnection {
 	private Logger logger = LoggerFactory.getLogger(getClass());
 	private HTTPClient client;
 	private ExceptionFormatter<HTTPRequest, HTTPResponse> formatter;
+	private String javascriptToInject;
+	private boolean injected;
 
 	public WebConnectionImpl(EventDispatcher dispatcher, Token token, HTTPClient client, ExceptionFormatter<HTTPRequest, HTTPResponse> formatter) {
 		this.dispatcher = dispatcher;
@@ -132,6 +135,14 @@ public class WebConnectionImpl implements WebConnection {
 				content = IOUtils.toBytes(readable);
 			}
 		}
+		String contentType = MimeUtils.getContentType(response.getContent().getHeaders());
+		if (!injected && content != null && contentType.equals("application/javascript") && javascriptToInject != null) {
+			ByteArrayOutputStream baos = new ByteArrayOutputStream();
+			baos.write((javascriptToInject + "\n\n").getBytes("UTF-8"));
+			baos.write(content);
+			content = baos.toByteArray();
+			injected = true;
+		}
 		
 		List<NameValuePair> responseHeaders = new ArrayList<NameValuePair>();
 		for (Header header : response.getContent().getHeaders()) {
@@ -147,4 +158,11 @@ public class WebConnectionImpl implements WebConnection {
 		return new WebResponse(data, arg0, new Date().getTime() - date.getTime());
 	}
 
+	public String getJavascriptToInject() {
+		return javascriptToInject;
+	}
+
+	public void setJavascriptToInject(String javascriptToInject) {
+		this.javascriptToInject = javascriptToInject;
+	}
 }

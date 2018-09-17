@@ -27,7 +27,7 @@ public class Services {
 	private ExecutionContext executionContext;
 	
 	@WebResult(name = "response")
-	public HTTPResponse execute(@NotNull @WebParam(name = "webApplicationId") String webApplicationId, @WebParam(name = "method") String method, @NotNull @WebParam(name = "url") URI url, @WebParam(name = "part") Part part, @WebParam(name = "token") Token token, @WebParam(name = "httpClientId") String httpClientId) {
+	public HTTPResponse execute(@NotNull @WebParam(name = "webApplicationId") String webApplicationId, @WebParam(name = "method") String method, @NotNull @WebParam(name = "url") URI url, @WebParam(name = "part") Part part, @WebParam(name = "token") Token token, @WebParam(name = "httpClientId") String httpClientId, @WebParam(name = "javascript") String javascript) {
 		WebApplication application = executionContext.getServiceContext().getResolver(WebApplication.class).resolve(webApplicationId);
 		if (application == null) {
 			throw new IllegalArgumentException("Unknown web application: " + webApplicationId);
@@ -57,7 +57,8 @@ public class Services {
 		return Renderer.execute(application, 
 			new DefaultHTTPRequest(method == null ? "GET" : method.toUpperCase(), url.toString(), (ModifiablePart) part), 
 			token,
-			client);
+			client,
+			javascript);
 	}
 	
 }

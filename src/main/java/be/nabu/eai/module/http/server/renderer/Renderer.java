@@ -65,14 +65,15 @@ public class Renderer implements EventHandler<HTTPRequest, HTTPResponse> {
 			}
 		}
 		if (resolve) {
-			return execute(application, request, null, client);
+			return execute(application, request, null, client, null);
 		}
 		return null;
 	}
 
-	public static HTTPResponse execute(WebApplication application, HTTPRequest request, Token token, HTTPClient client) {
+	public static HTTPResponse execute(WebApplication application, HTTPRequest request, Token token, HTTPClient client, String javascriptToInject) {
 		try {
 			WebConnectionImpl webConnection = new WebConnectionImpl(application.getDispatcher(), token, client, new RepositoryExceptionFormatter(application.getConfig().getVirtualHost().getConfig().getServer()));
+			webConnection.setJavascriptToInject(javascriptToInject);
 			BrowserVersion browserVersion = BrowserVersion.BEST_SUPPORTED;
 			if (!browserVersion.getUserAgent().contains("Nabu-Renderer")) {
 				browserVersion.setUserAgent(browserVersion.getUserAgent() + " Nabu-Renderer/1.0");
