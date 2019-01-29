@@ -2,6 +2,7 @@ package be.nabu.eai.module.http.server.renderer;
 
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import org.slf4j.Logger;
@@ -20,7 +21,6 @@ import be.nabu.libs.http.core.DefaultHTTPResponse;
 import be.nabu.libs.http.core.HTTPUtils;
 import be.nabu.utils.io.IOUtils;
 import be.nabu.utils.mime.api.Header;
-import be.nabu.utils.mime.api.ModifiablePart;
 import be.nabu.utils.mime.impl.MimeHeader;
 import be.nabu.utils.mime.impl.MimeUtils;
 import be.nabu.utils.mime.impl.PlainMimeContentPart;
@@ -35,6 +35,35 @@ import com.gargoylesoftware.htmlunit.html.HtmlPage;
 
 public class Renderer implements EventHandler<HTTPRequest, HTTPResponse> {
 	
+	// https://www.keycdn.com/blog/web-crawlers
+	private static List<String> defaultAgents = Arrays.asList(new String [] {
+		// ------------------------- GOOGLE -----------------------------
+		// use https://www.google.com/webmasters/tools/googlebot-fetch?pli=1 to debug
+		// google (multiple search bots)
+		"(?i).*Googlebot.*",
+		// google ads
+		"(?i).*AdsBot.*",
+		"(?i).*Mediapartners-Google.*",
+		"(?i).*developers.google.com.*",
+		
+		// -------------------------- MICROSOFT ------------------------
+		// https://www.bing.com/toolbox/webmaster/
+		"(?i).*Bingbot.*",
+		
+		// -------------------------- YAHOO ----------------------------
+		"(?i).*Slurp.*",
+		"(?i).*DuckDuckBot.*",
+		"(?i).*Baiduspider.*",
+		"(?i).*YandexBot.*",
+		"(?i).*Sogou.*",
+		"(?i).*Exabot.*",
+		"(?i).*facebook.com.*",
+		"(?i).*crawler@alexa.com.*",
+		
+		// catch all
+		"(?i).*(bot|googlebot|crawler|spider|robot|crawling).*"
+	});
+	
 	private List<String> agents = new ArrayList<String>();
 	private String pathRegex;
 	private WebApplication application;
@@ -44,6 +73,9 @@ public class Renderer implements EventHandler<HTTPRequest, HTTPResponse> {
 	public Renderer(WebApplication application, HTTPClient client) {
 		this.application = application;
 		this.client = client;
+		
+		// in the future we may want to toggle this behavior
+		this.agents.addAll(defaultAgents);
 	}
 
 	@Override
@@ -57,8 +89,9 @@ public class Renderer implements EventHandler<HTTPRequest, HTTPResponse> {
 			if (header != null) {
 				String value = MimeUtils.getFullHeaderValue(header);
 				for (String agent : agents) {
-					resolve = value.matches(agent);
-					if (resolve) {
+					boolean agentMatch = value.matches(agent);
+					if (agentMatch) {
+						resolve = true;
 						break;
 					}
 				}
@@ -121,7 +154,7 @@ public class Renderer implements EventHandler<HTTPRequest, HTTPResponse> {
 				byte [] bytes = content.getBytes("UTF-8");
 				logger.debug("Received: " + bytes.length + " bytes as content");
 				if (bytes.length == 0) {
-					return new DefaultHTTPResponse(request, 200, HTTPCodes.getMessage(200), new PlainMimeEmptyPart(null, 
+					return new DefaultHTTPResponse(request, 204, HTTPCodes.getMessage(200), new PlainMimeEmptyPart(null, 
 						new MimeHeader("Content-Length", "0")));
 				}
 				else {

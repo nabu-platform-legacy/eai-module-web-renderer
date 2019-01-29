@@ -17,6 +17,7 @@ public class RendererConfiguration {
 	private List<String> agents = new ArrayList<String>();
 	private CacheProviderArtifact cacheProvider;
 	private HTTPClientArtifact httpClient;
+	private boolean warmup;
 	
 	@EnvironmentSpecific
 	@XmlJavaTypeAdapter(value = ArtifactXMLAdapter.class)
@@ -40,5 +41,13 @@ public class RendererConfiguration {
 	}
 	public void setHttpClient(HTTPClientArtifact httpClient) {
 		this.httpClient = httpClient;
+	}
+	
+	@EnvironmentSpecific
+	public boolean isWarmup() {
+		return warmup;
+	}
+	public void setWarmup(boolean warmup) {
+		this.warmup = warmup;
 	}
 }

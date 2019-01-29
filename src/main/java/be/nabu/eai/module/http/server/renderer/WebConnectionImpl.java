@@ -77,8 +77,22 @@ public class WebConnectionImpl implements WebConnection {
 			request.getContent().setHeader(new MimeHeader(key, additionalHeaders.get(key)));
 		}
 		
-		if (MimeUtils.getHeader("Host", request.getContent().getHeaders()) == null) {
-			request.getContent().setHeader(new MimeHeader("Host", arg0.getUrl().getAuthority()));
+		Header hostHeader = MimeUtils.getHeader("Host", request.getContent().getHeaders());
+		if (hostHeader == null) {
+			request.getContent().setHeader(new MimeHeader("Host", arg0.getUrl().getHost()));
+		}
+		// if the host is not in sync with the request, update it
+		// apparently htmlunit will by default always take the "local" host?
+		// for example we were loading a page: http://172.20.23.1:9001/?$prerender
+		// it contains a link to a javascript hosted on cdn: https://cdnjs.cloudflare.com/ajax/libs/jquery/3.1.1/jquery.js
+		// for some reason the host header is: Host: 172.20.23.1:9001
+		else if (arg0.getUrl().getHost() != null && !arg0.getUrl().getHost().equals(hostHeader.getValue())) {
+			request.getContent().removeHeader("Host");
+			request.getContent().setHeader(new MimeHeader("Host", arg0.getUrl().getHost()));
+		}
+		
+		if (MimeUtils.getHeader("User-Agent", request.getContent().getHeaders()) == null) {
+			request.getContent().setHeader(new MimeHeader("User-Agent", "Nabu-Renderer/1.0"));
 		}
 		
 		request.getContent().setHeader(new MimeHeader("Nabu-Renderer", "false"));
@@ -121,6 +135,25 @@ public class WebConnectionImpl implements WebConnection {
 			}
 			catch (Exception e) {
 				throw new RuntimeException(e);
+			}
+		}
+		// do some post processing, for example to get the minified version
+		else {
+			HTTPResponse alteredResponse = dispatcher.fire(response, this, new ResponseHandler<HTTPResponse, HTTPResponse>() {
+				@Override
+				public HTTPResponse handle(HTTPResponse original, Object proposed, boolean isLast) {
+					if (proposed instanceof Exception) {
+						return formatter.format(request, (Exception) proposed);
+					}
+					else if (proposed instanceof HTTPResponse) {
+						return (HTTPResponse) proposed;
+					}
+					return null;
+				}
+			});
+			if (alteredResponse != null) {
+				logger.debug("Altered response to " + request.hashCode());
+				response = alteredResponse;
 			}
 		}
 		
