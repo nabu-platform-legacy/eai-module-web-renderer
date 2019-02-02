@@ -19,6 +19,7 @@ import be.nabu.libs.http.api.HTTPResponse;
 import be.nabu.libs.http.api.client.HTTPClient;
 import be.nabu.libs.http.core.DefaultHTTPResponse;
 import be.nabu.libs.http.core.HTTPUtils;
+import be.nabu.libs.http.core.ServerHeader;
 import be.nabu.utils.io.IOUtils;
 import be.nabu.utils.mime.api.Header;
 import be.nabu.utils.mime.impl.MimeHeader;
@@ -98,12 +99,12 @@ public class Renderer implements EventHandler<HTTPRequest, HTTPResponse> {
 			}
 		}
 		if (resolve) {
-			return execute(application, request, null, client, null);
+			return execute(application, request, null, client, null, false);
 		}
 		return null;
 	}
 
-	public static HTTPResponse execute(WebApplication application, HTTPRequest request, Token token, HTTPClient client, String javascriptToInject) {
+	public static HTTPResponse execute(WebApplication application, HTTPRequest request, Token token, HTTPClient client, String javascriptToInject, boolean setSsr) {
 		try {
 			WebConnectionImpl webConnection = new WebConnectionImpl(application.getDispatcher(), token, client, new RepositoryExceptionFormatter(application.getConfig().getVirtualHost().getConfig().getServer()));
 			webConnection.setJavascriptToInject(javascriptToInject);
@@ -137,6 +138,9 @@ public class Renderer implements EventHandler<HTTPRequest, HTTPResponse> {
 					for (Header header : request.getContent().getHeaders()) {
 						rendererRequest.setAdditionalHeader(header.getName(), MimeUtils.getFullHeaderValue(header));
 					}
+				}
+				if (setSsr) {
+					rendererRequest.setAdditionalHeader(ServerHeader.REQUEST_TYPE.getName(), "ssr");
 				}
 				logger.info("Loading page: " + uri);
 				HtmlPage page = webClient.getPage(rendererRequest);

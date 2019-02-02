@@ -58,7 +58,8 @@ public class Services {
 			new DefaultHTTPRequest(method == null ? "GET" : method.toUpperCase(), url.toString(), (ModifiablePart) part), 
 			token,
 			client,
-			javascript);
+			javascript,
+			true);
 	}
 	
 }

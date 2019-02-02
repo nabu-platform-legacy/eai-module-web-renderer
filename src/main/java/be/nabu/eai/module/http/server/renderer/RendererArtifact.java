@@ -64,10 +64,12 @@ public class RendererArtifact extends JAXBArtifact<RendererConfiguration> implem
 			LanguageProvider languageProvider = artifact.getLanguageProvider();
 			if (languageProvider != null && languageProvider.getSupportedLanguages() != null) {
 				for (String language : languageProvider.getSupportedLanguages()) {
+					logger.info("Warming up language: " + language);
 					load(artifact, client, language);
 				}
 			}
 			else {
+				logger.info("No language provider found, warming up without language");
 				load(artifact, client, null);
 			}
 			logger.info("Application " + artifact.getId() + " warmed up in " + ((new Date().getTime() - date.getTime()) / 1000.0) + "s");
@@ -82,7 +84,7 @@ public class RendererArtifact extends JAXBArtifact<RendererConfiguration> implem
 		if (language != null) {
 			content.setHeader(new MimeHeader("Cookie", "language=" + language));
 		}
-		Renderer.execute(artifact, new DefaultHTTPRequest("GET", artifact.getServerPath(), content), null, client, null);
+		Renderer.execute(artifact, new DefaultHTTPRequest("GET", artifact.getServerPath(), content), null, client, null, true);
 	}
 
 	@Override
