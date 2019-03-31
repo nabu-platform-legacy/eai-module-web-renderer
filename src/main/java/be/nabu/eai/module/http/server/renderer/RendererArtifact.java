@@ -1,6 +1,9 @@
 package be.nabu.eai.module.http.server.renderer;
 
 import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
@@ -19,6 +22,12 @@ import be.nabu.eai.repository.api.LanguageProvider;
 import be.nabu.eai.repository.api.Repository;
 import be.nabu.eai.repository.artifacts.jaxb.JAXBArtifact;
 import be.nabu.libs.authentication.api.Permission;
+import be.nabu.libs.cache.api.Cache;
+import be.nabu.libs.cache.api.CacheEntry;
+import be.nabu.libs.cache.api.CacheRefresher;
+import be.nabu.libs.cache.api.ExplorableCache;
+import be.nabu.libs.cache.impl.ByteSerializer;
+import be.nabu.libs.cache.impl.StringSerializer;
 import be.nabu.libs.events.api.EventSubscription;
 import be.nabu.libs.http.api.HTTPRequest;
 import be.nabu.libs.http.api.HTTPResponse;
@@ -32,6 +41,7 @@ public class RendererArtifact extends JAXBArtifact<RendererConfiguration> implem
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
 	private Map<String, EventSubscription<?, ?>> subscriptions = new HashMap<String, EventSubscription<?, ?>>();
+	private Map<String, Cache> caches = new HashMap<String, Cache>();
 	
 	public RendererArtifact(String id, ResourceContainer<?> directory, Repository repository) {
 		super(id, directory, repository, "renderer.xml", RendererConfiguration.class);
@@ -39,14 +49,9 @@ public class RendererArtifact extends JAXBArtifact<RendererConfiguration> implem
 
 	@Override
 	public void start(WebApplication artifact, String path) throws IOException {
-		HTTPClient client;
-		try {
-			client = Services.newClient(getConfig().getHttpClient());
-		}
-		catch (Exception e) {
-			throw new RuntimeException(e);
-		}
-		Renderer renderer = new Renderer(artifact, client);
+		HTTPClient client = getHttpClient();
+		
+		Renderer renderer = new Renderer(artifact, client, getCache(artifact));
 		if (EAIResourceRepository.isDevelopment()) {
 			renderer.setPathRegex(".*\\?.*\\$prerender");
 		}
@@ -76,6 +81,15 @@ public class RendererArtifact extends JAXBArtifact<RendererConfiguration> implem
 		}
 	}
 
+	private HTTPClient getHttpClient() {
+		try {
+			return Services.newClient(getConfig().getHttpClient());
+		}
+		catch (Exception e) {
+			throw new RuntimeException(e);
+		}
+	}
+
 	private void load(WebApplication artifact, HTTPClient client, String language) throws IOException {
 		String host = artifact.getConfig().getVirtualHost().getConfig().getHost();
 		PlainMimeEmptyPart content = new PlainMimeEmptyPart(null, 
@@ -98,6 +112,14 @@ public class RendererArtifact extends JAXBArtifact<RendererConfiguration> implem
 				}
 			}
 		}
+		// we currently don't clear the cache on removal, we generally want persistent caches (if at all possible)
+		if (caches.containsKey(key)) {
+			synchronized(caches) {
+				if (caches.containsKey(key)) {
+					caches.remove(key);
+				}
+			}
+		}
 	}
 
 	@Override
@@ -116,5 +138,87 @@ public class RendererArtifact extends JAXBArtifact<RendererConfiguration> implem
 	
 	public WebFragmentPriority getPriority() {
 		return WebFragmentPriority.LOWEST;
+	}
+	
+	private Cache getCache(final WebApplication application) {
+		if (!caches.containsKey(application.getId()) && getConfig().getCacheProvider() != null) {
+			synchronized(caches) {
+				if (!caches.containsKey(application.getId()) && getConfig().getCacheProvider() != null) {
+					CacheRefresher refresher = new CacheRefresher() {
+						@Override
+						public Object refresh(Object key) throws IOException {
+							try {
+								URI uri = new URI(key.toString());
+								return calculateCache(application, uri);
+							}
+							catch (URISyntaxException e) {
+								logger.error("Could not refresh cache for: " + key, e);
+							}
+							return null;
+						}
+					};
+					caches.put(application.getId(), getConfig().getCacheProvider().create(getId(), 0, 0, new StringSerializer(Charset.forName("UTF-8")), new ByteSerializer(), refresher, null));
+				}
+			}
+		}
+		return caches.get(application.getId());
+	}
+	
+	protected boolean isCached(WebApplication application, URI url) {
+		Cache cache = getCache(application);
+		if (cache instanceof ExplorableCache) {
+			return ((ExplorableCache) cache).getEntry(url.toString()) != null;
+		}
+		else if (cache != null) {
+			try {
+				return cache.get(url.toString()) != null;
+			}
+			catch (IOException e) {
+				return false;
+			}
+		}
+		return false;
+	}
+	
+	public void cache(WebApplication application, URI url, Date lastModified) {
+		Cache cache = getCache(application);
+		try {
+			if (cache instanceof ExplorableCache) {
+				CacheEntry entry = ((ExplorableCache) cache).getEntry(url.toString());
+				// if the url was modified after the cache was created, refresh it
+				if (entry != null && lastModified != null && lastModified.after(entry.getLastModified())) {
+					logger.info("Refreshing SSR cache for: " + url);
+					cache.refresh(url.toString());
+				}
+				// not cache yet, do so
+				else if (entry == null) {
+					logger.info("Calculating SSR cache for: " + url);
+					cache.put(url.toString(), calculateCache(application, url));
+				}
+				else {
+					logger.debug("SSR cache still valid for: " + url);
+				}
+			}
+			else if (cache != null) {
+				Object object = cache.get(url.toString());
+				if (object == null) {
+					cache.put(url.toString(), calculateCache(application, url));	
+				}
+				else {
+					logger.debug("SSR cache still valid for: " + url);
+				}
+			}
+		}
+		catch (Exception e) {
+			logger.warn("Could not cache: " + url, e);
+		}
+	}
+	
+	private byte [] calculateCache(WebApplication application, URI uri) {
+		HTTPRequest request = new DefaultHTTPRequest("GET", uri.toString(), new PlainMimeEmptyPart(null, 
+			new MimeHeader("Host", uri.getHost()),
+			new MimeHeader("Content-Length", "0")
+		));
+		return Renderer.executeAsBytes(application, request, null, getHttpClient(), null, false);
 	}
 }
