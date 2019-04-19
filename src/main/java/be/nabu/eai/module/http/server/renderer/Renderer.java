@@ -60,8 +60,19 @@ public class Renderer implements EventHandler<HTTPRequest, HTTPResponse> {
 		// https://www.bing.com/toolbox/webmaster/
 		"(?i).*Bingbot.*",
 		
+		// -------------------------- LINKEDIN -------------------------
+		"(?i).*LinkedInBot.*",
+		
+		// -------------------------- TWITTER -------------------------
+		"(?i).*TwitterBot.*",
+		
+		// -------------------------- PINTEREST -------------------------
+		"(?i).*Pinterestbot.*",
+		
 		// -------------------------- YAHOO ----------------------------
 		"(?i).*Slurp.*",
+		
+		// -------------------------- OTHER ----------------------------
 		"(?i).*DuckDuckBot.*",
 		"(?i).*Baiduspider.*",
 		"(?i).*YandexBot.*",
@@ -195,6 +206,11 @@ public class Renderer implements EventHandler<HTTPRequest, HTTPResponse> {
 			BrowserVersion browserVersion = BrowserVersion.BEST_SUPPORTED;
 			if (!browserVersion.getUserAgent().contains("Nabu-Renderer")) {
 				browserVersion.setUserAgent(browserVersion.getUserAgent() + " Nabu-Renderer/1.0");
+			}
+			// the initial request will get the headers we want, but any requests that follow from that (e.g. to fetch javascript, css...) will use "default" header stuffs
+			List<String> acceptedLanguages = MimeUtils.getAcceptedLanguages(request.getContent().getHeaders());
+			if (acceptedLanguages.size() > 0) {
+				browserVersion.setBrowserLanguage(acceptedLanguages.get(0));
 			}
 			final WebClient webClient = new WebClient(browserVersion, webConnection);
 			
