@@ -18,6 +18,7 @@ import be.nabu.libs.http.api.HTTPRequest;
 import be.nabu.libs.http.api.HTTPResponse;
 import be.nabu.libs.http.api.client.HTTPClient;
 import be.nabu.libs.http.core.DefaultHTTPRequest;
+import be.nabu.libs.http.core.ServerHeader;
 import be.nabu.libs.http.server.SimpleAuthenticationHeader;
 import be.nabu.libs.nio.api.ExceptionFormatter;
 import be.nabu.utils.io.IOUtils;
@@ -45,6 +46,7 @@ public class WebConnectionImpl implements WebConnection {
 	private ExceptionFormatter<HTTPRequest, HTTPResponse> formatter;
 	private String javascriptToInject;
 	private boolean injected;
+	private boolean ssr;
 
 	public WebConnectionImpl(EventDispatcher dispatcher, Token token, HTTPClient client, ExceptionFormatter<HTTPRequest, HTTPResponse> formatter) {
 		this.dispatcher = dispatcher;
@@ -97,6 +99,10 @@ public class WebConnectionImpl implements WebConnection {
 		
 		request.getContent().setHeader(new MimeHeader("Nabu-Renderer", "false"));
 		
+		if (ssr) {
+			request.getContent().setHeader(new MimeHeader(ServerHeader.REQUEST_TYPE.getName(), "ssr"));
+		}
+		
 		if (token != null) {
 			logger.debug("Adding credentials for {}", token);
 			request.getContent().setHeader(new SimpleAuthenticationHeader(token));
@@ -128,10 +134,13 @@ public class WebConnectionImpl implements WebConnection {
 			}
 		});
 		
+		logger.info("Renderer request [" + (new Date().getTime() - date.getTime()) + "ms] " + arg0.getUrl());
+		
 		// if there is no response whatsoever (not even a 404), it was not aimed at this server, could be a cdn import or something like that
 		if (response == null) {
 			try {
 				response = client.execute(request, null, request.getTarget().startsWith("https://"), true);
+				logger.info("Renderer external request [" + (new Date().getTime() - date.getTime()) + "ms] " + arg0.getUrl());
 			}
 			catch (Exception e) {
 				throw new RuntimeException(e);
@@ -155,6 +164,7 @@ public class WebConnectionImpl implements WebConnection {
 				logger.debug("Altered response to " + request.hashCode());
 				response = alteredResponse;
 			}
+			logger.info("Renderer altered response [" + (new Date().getTime() - date.getTime()) + "ms] " + arg0.getUrl());
 		}
 		
 		if (response == null) {
@@ -188,6 +198,7 @@ public class WebConnectionImpl implements WebConnection {
 		
 		logger.debug("Response for " + arg0.getHttpMethod() + " " + arg0.getUrl() + ": " + response.getCode() + " " + response.getMessage());
 		
+		logger.info("Renderer done [" + (new Date().getTime() - date.getTime()) + "ms] " + arg0.getUrl());
 		return new WebResponse(data, arg0, new Date().getTime() - date.getTime());
 	}
 
@@ -197,5 +208,13 @@ public class WebConnectionImpl implements WebConnection {
 
 	public void setJavascriptToInject(String javascriptToInject) {
 		this.javascriptToInject = javascriptToInject;
+	}
+
+	public boolean isSsr() {
+		return ssr;
+	}
+
+	public void setSsr(boolean ssr) {
+		this.ssr = ssr;
 	}
 }

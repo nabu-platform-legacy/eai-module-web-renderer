@@ -98,7 +98,7 @@ public class RendererArtifact extends JAXBArtifact<RendererConfiguration> implem
 		if (language != null) {
 			content.setHeader(new MimeHeader("Cookie", "language=" + language));
 		}
-		Renderer.execute(artifact, new DefaultHTTPRequest("GET", artifact.getServerPath(), content), null, client, null, true);
+		Renderer.execute(artifact, new DefaultHTTPRequest("GET", artifact.getServerPath(), content), null, client, null, true, false);
 	}
 
 	@Override
@@ -219,6 +219,6 @@ public class RendererArtifact extends JAXBArtifact<RendererConfiguration> implem
 			new MimeHeader("Host", uri.getHost()),
 			new MimeHeader("Content-Length", "0")
 		));
-		return Renderer.executeAsBytes(application, request, null, getHttpClient(), null, false);
+		return Renderer.executeAsBytes(application, request, null, getHttpClient(), null, false, false);
 	}
 }

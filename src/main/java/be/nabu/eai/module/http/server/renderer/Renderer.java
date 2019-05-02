@@ -13,9 +13,7 @@ import org.slf4j.LoggerFactory;
 import be.nabu.eai.module.http.server.RepositoryExceptionFormatter;
 import be.nabu.eai.module.web.application.WebApplication;
 import be.nabu.eai.repository.EAIRepositoryUtils;
-import be.nabu.eai.repository.EAIResourceRepository;
 import be.nabu.eai.repository.Notification;
-import be.nabu.eai.repository.api.CacheProviderArtifact;
 import be.nabu.libs.authentication.api.Token;
 import be.nabu.libs.cache.api.Cache;
 import be.nabu.libs.events.api.EventHandler;
@@ -26,11 +24,9 @@ import be.nabu.libs.http.api.HTTPResponse;
 import be.nabu.libs.http.api.client.HTTPClient;
 import be.nabu.libs.http.core.DefaultHTTPResponse;
 import be.nabu.libs.http.core.HTTPUtils;
-import be.nabu.libs.http.core.ServerHeader;
 import be.nabu.libs.validator.api.ValidationMessage.Severity;
 import be.nabu.utils.io.IOUtils;
 import be.nabu.utils.mime.api.Header;
-import be.nabu.utils.mime.impl.FormatException;
 import be.nabu.utils.mime.impl.MimeHeader;
 import be.nabu.utils.mime.impl.MimeUtils;
 import be.nabu.utils.mime.impl.PlainMimeContentPart;
@@ -139,7 +135,7 @@ public class Renderer implements EventHandler<HTTPRequest, HTTPResponse> {
 
 			Notification notification = new Notification();
 			notification.setContext(Arrays.asList(application.getId()));
-			notification.setCode(0);
+			notification.setCode("RENDERER-0");
 			notification.setType("nabu.web.renderer.bot");
 			
 			byte [] bytes = null;
@@ -156,7 +152,8 @@ public class Renderer implements EventHandler<HTTPRequest, HTTPResponse> {
 			if (bytes == null) {
 				Date date = new Date();
 				// we do _not_ want to bypass stuff like the password protector if doing SSR on external request
-				bytes = executeAsBytes(application, request, null, client, null, false);
+				// we also don't need css
+				bytes = executeAsBytes(application, request, null, client, null, false, false);
 				if (cache != null) {
 					try {
 						cache.put(uri.toString(), bytes);
@@ -182,8 +179,8 @@ public class Renderer implements EventHandler<HTTPRequest, HTTPResponse> {
 		return null;
 	}
 
-	public static HTTPResponse execute(WebApplication application, HTTPRequest request, Token token, HTTPClient client, String javascriptToInject, boolean setSsr) {
-		byte [] bytes = executeAsBytes(application, request, token, client, javascriptToInject, setSsr);
+	public static HTTPResponse execute(WebApplication application, HTTPRequest request, Token token, HTTPClient client, String javascriptToInject, boolean setSsr, Boolean css) {
+		byte [] bytes = executeAsBytes(application, request, token, client, javascriptToInject, setSsr, css);
 		return wrapIntoResponse(request, bytes);
 	}
 	
@@ -199,10 +196,11 @@ public class Renderer implements EventHandler<HTTPRequest, HTTPResponse> {
 		}
 	}
 	
-	static byte [] executeAsBytes(WebApplication application, HTTPRequest request, Token token, HTTPClient client, String javascriptToInject, boolean setSsr) {
+	static byte [] executeAsBytes(WebApplication application, HTTPRequest request, Token token, HTTPClient client, String javascriptToInject, boolean setSsr, Boolean css) {
 		try {
 			WebConnectionImpl webConnection = new WebConnectionImpl(application.getDispatcher(), token, client, new RepositoryExceptionFormatter(application.getConfig().getVirtualHost().getConfig().getServer()));
 			webConnection.setJavascriptToInject(javascriptToInject);
+			webConnection.setSsr(setSsr);
 			BrowserVersion browserVersion = BrowserVersion.BEST_SUPPORTED;
 			if (!browserVersion.getUserAgent().contains("Nabu-Renderer")) {
 				browserVersion.setUserAgent(browserVersion.getUserAgent() + " Nabu-Renderer/1.0");
@@ -219,16 +217,16 @@ public class Renderer implements EventHandler<HTTPRequest, HTTPResponse> {
 //			HtmlUnitContextFactory factory = sriptEngine.getContextFactory();
 //			Context context = factory.enterContext();
 //			context.setOptimizationLevel(9);
-			
 			webClient.setAjaxController(new NicelyResynchronizingAjaxController());
 			webClient.setCssErrorHandler(new SilentCssErrorHandler());
-			webClient.getOptions().setCssEnabled(true);
+			webClient.getOptions().setCssEnabled(css == null || css);
 			webClient.getOptions().setJavaScriptEnabled(true);
 			webClient.getOptions().setPopupBlockerEnabled(true);
 			webClient.getOptions().setTimeout(30000);
 			webClient.getOptions().setThrowExceptionOnFailingStatusCode(false);
 			webClient.getOptions().setThrowExceptionOnScriptError(true);
 			webClient.getOptions().setPrintContentOnFailingStatusCode(true);
+			webClient.getOptions().setDownloadImages(false);
 			
 			try {
 				// we can expand later to support body posts etc if necessary
@@ -238,9 +236,6 @@ public class Renderer implements EventHandler<HTTPRequest, HTTPResponse> {
 					for (Header header : request.getContent().getHeaders()) {
 						rendererRequest.setAdditionalHeader(header.getName(), MimeUtils.getFullHeaderValue(header));
 					}
-				}
-				if (setSsr) {
-					rendererRequest.setAdditionalHeader(ServerHeader.REQUEST_TYPE.getName(), "ssr");
 				}
 				logger.info("Loading page: " + uri);
 				HtmlPage page = webClient.getPage(rendererRequest);
