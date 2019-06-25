@@ -29,12 +29,16 @@ public class Services {
 	private ExecutionContext executionContext;
 	
 	@WebResult(name = "response")
-	public HTTPResponse execute(@NotNull @WebParam(name = "webApplicationId") String webApplicationId, @WebParam(name = "method") String method, @NotNull @WebParam(name = "url") URI url, @WebParam(name = "part") Part part, @WebParam(name = "token") Token token, @WebParam(name = "httpClientId") String httpClientId, @WebParam(name = "javascript") String javascript, @WebParam(name = "disableSsrBypass") Boolean disableSsrBypass, @WebParam(name = "disableCss") Boolean disableCss) {
+	public HTTPResponse execute(@NotNull @WebParam(name = "webApplicationId") String webApplicationId, @WebParam(name = "method") String method, @NotNull @WebParam(name = "url") URI url, @WebParam(name = "part") Part part, @WebParam(name = "token") Token token, @WebParam(name = "httpClientId") String httpClientId, @WebParam(name = "javascript") String javascript, @WebParam(name = "disableSsrBypass") Boolean disableSsrBypass, @WebParam(name = "disableCss") Boolean disableCss, @WebParam(name = "host") String host) {
 		WebApplication application = executionContext.getServiceContext().getResolver(WebApplication.class).resolve(webApplicationId);
 		if (application == null) {
 			throw new IllegalArgumentException("Unknown web application: " + webApplicationId);
 		}
-		String host = url.getHost();
+		// if you didn't pass a host separately, get it from url
+		if (host == null) {
+			host = url.getHost();
+		}
+		// else get from virtual host
 		if (host == null) {
 			host = application.getConfig().getVirtualHost().getConfig().getHost();
 		}

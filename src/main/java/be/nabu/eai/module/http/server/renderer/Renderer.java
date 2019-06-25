@@ -1,6 +1,7 @@
 package be.nabu.eai.module.http.server.renderer;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -35,9 +36,12 @@ import be.nabu.utils.mime.impl.PlainMimeEmptyPart;
 import com.gargoylesoftware.htmlunit.BrowserVersion;
 import com.gargoylesoftware.htmlunit.NicelyResynchronizingAjaxController;
 import com.gargoylesoftware.htmlunit.SilentCssErrorHandler;
+import com.gargoylesoftware.htmlunit.TextPage;
+import com.gargoylesoftware.htmlunit.UnexpectedPage;
 import com.gargoylesoftware.htmlunit.WebClient;
 import com.gargoylesoftware.htmlunit.WebRequest;
 import com.gargoylesoftware.htmlunit.html.HtmlPage;
+import com.gargoylesoftware.htmlunit.xml.XmlPage;
 
 public class Renderer implements EventHandler<HTTPRequest, HTTPResponse> {
 	
@@ -230,7 +234,8 @@ public class Renderer implements EventHandler<HTTPRequest, HTTPResponse> {
 			
 			try {
 				// we can expand later to support body posts etc if necessary
-				URI uri = HTTPUtils.getURI(request, false);
+				boolean secure = application.getConfig().getVirtualHost() != null && application.getConfig().getVirtualHost().getConfig().getServer() != null && application.getConfig().getVirtualHost().getConfig().getServer().isSecure();
+				URI uri = HTTPUtils.getURI(request, secure);
 				WebRequest rendererRequest = new WebRequest(uri.toURL());
 				if (request.getContent() != null) {
 					for (Header header : request.getContent().getHeaders()) {
@@ -238,19 +243,44 @@ public class Renderer implements EventHandler<HTTPRequest, HTTPResponse> {
 					}
 				}
 				logger.info("Loading page: " + uri);
-				HtmlPage page = webClient.getPage(rendererRequest);
+				Object page = webClient.getPage(rendererRequest);
 //				logger.debug("Initializing page: " + uri);
 //				page.initialize();
 				// waiting for background javascript tasks to finish...
 				logger.debug("Waiting for background tasks...");
 				webClient.waitForBackgroundJavaScript(10000);
 				logger.debug("Getting page as xml");
-				String content = page.asXml();
-				// it will generate CDATA tags inside all script tags
-				// this is fine for javascript but does not work with templates
-				content = content.replaceAll("//[\\s]*<!\\[CDATA\\[", "");
-				content = content.replaceAll("//[\\s]*\\]\\]>", "");
-				byte [] bytes = content.getBytes("UTF-8");
+				byte [] bytes = null;
+				String content = null;
+				if (page instanceof HtmlPage) {
+					content = ((HtmlPage) page).asXml();
+				}
+				else if (page instanceof TextPage) {
+					content = ((TextPage) page).getContent();
+				}
+				else if (page instanceof XmlPage) {
+					content = ((XmlPage) page).asXml();
+				}
+				else if (page instanceof UnexpectedPage) {
+					InputStream stream = ((UnexpectedPage) page).getInputStream();
+					try {
+						bytes = IOUtils.toBytes(IOUtils.wrap(stream));
+					}
+					finally {
+						stream.close();
+					}
+				}
+				else {
+					throw new HTTPException(502, "Unknown page type: " + page);
+				}
+				
+				if (bytes == null && content != null) {
+					// it will generate CDATA tags inside all script tags
+					// this is fine for javascript but does not work with templates
+					content = content.replaceAll("//[\\s]*<!\\[CDATA\\[", "");
+					content = content.replaceAll("//[\\s]*\\]\\]>", "");
+					bytes = content.getBytes("UTF-8");
+				}
 				logger.debug("Received: " + bytes.length + " bytes as content");
 				return bytes;
 			}
