@@ -16,6 +16,7 @@ import be.nabu.libs.authentication.api.Token;
 import be.nabu.libs.http.api.HTTPResponse;
 import be.nabu.libs.http.api.client.HTTPClient;
 import be.nabu.libs.http.core.DefaultHTTPRequest;
+import be.nabu.libs.services.ServiceRuntime;
 import be.nabu.libs.services.api.ExecutionContext;
 import be.nabu.utils.mime.api.ModifiablePart;
 import be.nabu.utils.mime.api.Part;
@@ -60,14 +61,30 @@ public class Services {
 		catch (Exception e) {
 			throw new RuntimeException(e);
 		}
-		return Renderer.execute(application, 
-			new DefaultHTTPRequest(method == null ? "GET" : method.toUpperCase(), url.toString(), (ModifiablePart) part), 
-			token,
-			client,
-			javascript,
-			disableSsrBypass == null || !disableSsrBypass,
-			disableCss != null && disableCss ? false : true
-		);
+		HTTPResponse response;
+		// we need to unregister the current runtime that leads to this service invocation
+		// otherwise, _all_ services while rendering the application (e.g. language resolving etc) will build on this service context
+		// this is really bad for things like tracing mode, which recursively checks all parents, so if you trace the render itself, you actually trace all services it indirectly calls
+		ServiceRuntime runtime = ServiceRuntime.getRuntime();
+		try {
+			if (runtime != null) {
+				runtime.unregisterInThread();
+			}
+			response = Renderer.execute(application, 
+				new DefaultHTTPRequest(method == null ? "GET" : method.toUpperCase(), url.toString(), (ModifiablePart) part), 
+				token,
+				client,
+				javascript,
+				disableSsrBypass == null || !disableSsrBypass,
+				disableCss != null && disableCss ? false : true
+			);
+		}
+		finally {
+			if (runtime != null) {
+				runtime.registerInThread(false);
+			}
+		}
+		return response;
 	}
 	
 	public void cache(@NotNull @WebParam(name = "webApplicationId") String webApplicationId, @NotNull @WebParam(name = "rendererId") String rendererId, @NotNull @WebParam(name = "url") URI uri, @WebParam(name = "lastModified") Date lastModified) {
