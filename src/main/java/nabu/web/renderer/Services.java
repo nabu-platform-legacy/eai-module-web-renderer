@@ -90,6 +90,17 @@ public class Services {
 	public void cache(@NotNull @WebParam(name = "webApplicationId") String webApplicationId, @NotNull @WebParam(name = "rendererId") String rendererId, @NotNull @WebParam(name = "url") URI uri, @WebParam(name = "lastModified") Date lastModified) {
 		WebApplication application = executionContext.getServiceContext().getResolver(WebApplication.class).resolve(webApplicationId);
 		RendererArtifact renderer = executionContext.getServiceContext().getResolver(RendererArtifact.class).resolve(rendererId);
-		renderer.cache(application, uri, lastModified);
+		ServiceRuntime runtime = ServiceRuntime.getRuntime();
+		try {
+			if (runtime != null) {
+				runtime.unregisterInThread();
+			}
+			renderer.cache(application, uri, lastModified);
+		}
+		finally {
+			if (runtime != null) {
+				runtime.registerInThread(false);
+			}
+		}
 	}
 }
