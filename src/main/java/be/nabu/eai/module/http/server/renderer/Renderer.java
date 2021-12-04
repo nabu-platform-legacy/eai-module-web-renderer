@@ -136,7 +136,23 @@ public class Renderer implements EventHandler<HTTPRequest, HTTPResponse> {
 			catch (Exception e) {
 				throw new HTTPException(500, e);
 			}
-
+			
+			// if we find an extension, only html is supported
+			// otherwise we might intercept resources that are being requested and not found (e.g. favicon.ico)
+			// more or less a copy paste for html5 intercepting (see web application)
+			if (!uri.getPath().endsWith("/")) {
+				String fileName = uri.getPath().replaceAll("^.*/([^/]+$)", "$1");
+				if (fileName.matches("^.*\\.[\\w]+$") && !fileName.endsWith(".html")) {
+					return null;
+				}
+			}
+			// again more or less a copy from html5 mode
+			// it is unclear atm which content types are typically requested by bots, hopefully it is not too strict
+			List<String> acceptedContentTypes = MimeUtils.getAcceptedContentTypes(request.getContent().getHeaders());
+			if (!acceptedContentTypes.contains("text/html") && !acceptedContentTypes.contains("text/*") && !acceptedContentTypes.contains("*/*")) {
+				return null;
+			}
+			
 			Notification notification = new Notification();
 			notification.setContext(Arrays.asList(application.getId()));
 			notification.setCode("RENDERER-0");
