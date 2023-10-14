@@ -103,8 +103,8 @@ public class Renderer implements EventHandler<HTTPRequest, HTTPResponse> {
 		// in the future we may want to toggle this behavior
 		this.agents.addAll(defaultAgents);
 		
-		this.secure = application.getConfig().getVirtualHost() != null && application.getConfig().getVirtualHost().getConfig().getServer() != null 
-			? application.getConfig().getVirtualHost().getConfig().getServer().isSecure()
+		this.secure = application.getConfig().getVirtualHost() != null && application.getConfig().getVirtualHost().getServer() != null 
+			? application.getConfig().getVirtualHost().getServer().isSecure()
 			: false;
 	}
 
@@ -218,7 +218,7 @@ public class Renderer implements EventHandler<HTTPRequest, HTTPResponse> {
 	
 	static byte [] executeAsBytes(WebApplication application, HTTPRequest request, Token token, HTTPClient client, String javascriptToInject, boolean setSsr, Boolean css) {
 		try {
-			WebConnectionImpl webConnection = new WebConnectionImpl(application.getDispatcher(), token, client, new RepositoryExceptionFormatter(application.getConfig().getVirtualHost().getConfig().getServer()));
+			WebConnectionImpl webConnection = new WebConnectionImpl(application.getDispatcher(), token, client, new RepositoryExceptionFormatter(application.getConfig().getVirtualHost().getServer()));
 			webConnection.setJavascriptToInject(javascriptToInject);
 			webConnection.setSsr(setSsr);
 			BrowserVersion browserVersion = BrowserVersion.BEST_SUPPORTED;
@@ -250,7 +250,7 @@ public class Renderer implements EventHandler<HTTPRequest, HTTPResponse> {
 			
 			try {
 				// we can expand later to support body posts etc if necessary
-				boolean secure = application.getConfig().getVirtualHost() != null && application.getConfig().getVirtualHost().getConfig().getServer() != null && application.getConfig().getVirtualHost().getConfig().getServer().isSecure();
+				boolean secure = application.getConfig().getVirtualHost() != null && application.getConfig().getVirtualHost().getServer() != null && application.getConfig().getVirtualHost().getServer().isSecure();
 				URI uri = HTTPUtils.getURI(request, secure);
 				WebRequest rendererRequest = new WebRequest(uri.toURL());
 				if (request.getContent() != null) {
